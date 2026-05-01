@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>抄写助手</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #151520;
+            --bg-tertiary: #1e1e2e;
+            --text-primary: #e2e2e8;
+            --text-secondary: #6b6b7b;
+            --text-dim: #3a3a4a;
+            --accent: #7c3aed;
+            --accent-hover: #8b5cf6;
+            --border: #2a2a3a;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --safe-left: env(safe-area-inset-left, 0px);
+            --safe-right: env(safe-area-inset-right, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            touch-action: none;
+            padding-left: var(--safe-left);
+            padding-right: var(--safe-right);
+            padding-bottom: var(--safe-bottom);
+        }
+
+        .time-display {
+            position: fixed;
+            top: 1rem;
+            right: calc(4rem + var(--safe-right));
+            z-index: 90;
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            font-weight: 400;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0.05em;
+            opacity: 0.6;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .time-display:hover {
+            opacity: 1;
+            color: var(--text-secondary);
+        }
+
+        .settings-panel {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem;
+            padding-top: calc(1rem + env(safe-area-inset-top, 0px));
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+            transition: transform 0.3s ease;
+            z-index: 50;
+        }
+
+        .settings-panel.hidden {
+            transform: translateY(-100%);
+            position: absolute;
+            width: 100%;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .input-group label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        /* 数字控制器样式 */
+        .number-control {
+            display: flex;
+            align-items: center;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .number-control button {
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            width: 32px;
+            height: 32px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .number-control button:hover {
+            background: var(--border);
+        }
+
+        .number-control button:active {
+            background: var(--accent);
+        }
+
+        .number-control .value {
+            min-width: 40px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        input[type="range"] {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 0.4rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            width: 100px;
+            cursor: pointer;
+        }
+
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.5rem 1.2rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        button:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+        }
+
+        button.secondary {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+        }
+
+        button.secondary:hover {
+            background: var(--border);
+        }
+
+        button.active {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .toggle-settings {
+            position: fixed;
+            top: calc(1rem + env(safe-area-inset-top, 0px));
+            right: calc(1rem + var(--safe-right));
+            z-index: 100;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .input-section {
+            flex: 1;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            overflow-y: auto;
+        }
+
+        textarea {
+            flex: 1;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 1.5rem;
+            border-radius: 12px;
+            font-size: 1rem;
+            line-height: 1.8;
+            resize: none;
+            font-family: inherit;
+            min-height: 200px;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .reader-view {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .reader-view.active {
+            display: flex;
+        }
+
+        .text-display {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .click-area {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            width: 50%;
+            z-index: 10;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        .click-area-left {
+            left: 0;
+        }
+
+        .click-area-right {
+            right: 0;
+        }
+
+        .click-area.disabled {
+            pointer-events: none;
+        }
+
+        .click-hint {
+            color: var(--text-secondary);
+            font-size: 2.5rem;
+            pointer-events: none;
+            padding: 1.5rem;
+            border-radius: 50%;
+            background: rgba(30, 30, 46, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            opacity: 0;
+            transform: scale(0.8);
+            transition: all 0.2s ease;
+        }
+
+        .click-area.tapped .click-hint {
+            opacity: 1;
+            transform: scale(1);
+            color: var(--accent);
+            background: rgba(124, 58, 237, 0.2);
+        }
+
+        @media (hover: hover) {
+            .click-area:hover .click-hint {
+                opacity: 0.6;
+                transform: scale(1);
+            }
+            .click-area:active .click-hint {
+                opacity: 1;
+                color: var(--accent);
+            }
+        }
+
+        .lines-container {
+            width: 100%;
+            padding: 2rem;
+            max-width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        /* 关键修改：允许换行，但限制最大行数 */
+        .line {
+            width: 100%;
+            text-align: center;
+            padding: 0.5rem 1rem;
+            transition: all 0.3s ease;
+            line-height: 1.6;
+            /* 允许换行 */
+            overflow: visible;
+            white-space: normal;
+            word-break: break-all; /* 强制换行 */
+            max-height: 3.2em; /* 限制最大2行 */
+            display: -webkit-box;
+            -webkit-line-clamp: 2; /* 最多显示2行 */
+            -webkit-box-orient: vertical;
+        }
+
+        .line-prev {
+            color: var(--text-dim);
+            opacity: 0.4;
+            transform: scale(0.9);
+        }
+
+        .line-current {
+            color: var(--text-primary);
+            font-weight: 500;
+            text-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
+            position: relative;
+            margin: 0.5rem 0;
+            /* 当前行可以更高 */
+            max-height: none;
+            -webkit-line-clamp: unset;
+        }
+
+        .line-current::before,
+        .line-current::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        }
+
+        .line-current::before {
+            top: 0;
+        }
+
+        .line-current::after {
+            bottom: 0;
+        }
+
+        .line-next {
+            color: var(--text-secondary);
+            opacity: 0.7;
+            transform: scale(0.9);
+        }
+
+        .paragraph-indicator {
+            position: absolute;
+            top: 5rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: var(--success);
+            color: white;
+            padding: 0.6rem 1.2rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 30;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .paragraph-indicator.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .paragraph-indicator::before {
+            content: '¶';
+            font-size: 1.2rem;
+        }
+
+        .progress-wrapper {
+            position: absolute;
+            bottom: calc(var(--safe-bottom) + 0.5rem);
+            left: 50%;
+            transform: translateX(-50%);
+            width: calc(100% - 2rem - var(--safe-left) - var(--safe-right));
+            max-width: 600px;
+            z-index: 20;
+            padding: 15px 0;
+        }
+
+        .progress-container {
+            position: relative;
+            width: 100%;
+            height: 30px;
+            cursor: pointer;
+            touch-action: none;
+            display: flex;
+            align-items: center;
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 6px;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            position: relative;
+            overflow: visible;
+        }
+
+        .para-marks-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .para-mark {
+            position: absolute;
+            top: -4px;
+            width: 3px;
+            height: 14px;
+            background: var(--success);
+            border-radius: 1px;
+            opacity: 0.8;
+            box-shadow: 0 0 4px rgba(16, 185, 129, 0.4);
+            transition: opacity 0.3s;
+        }
+
+        .para-mark::after {
+            content: attr(data-para);
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.65rem;
+            color: var(--success);
+            opacity: 0;
+            transition: opacity 0.3s;
+            background: var(--bg-secondary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid var(--success);
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        .progress-container:hover .para-mark::after,
+        .progress-container.dragging .para-mark::after {
+            opacity: 1;
+        }
+
+        .progress-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+            transition: width 0.05s ease;
+            z-index: 2;
+            border-radius: 3px;
+            pointer-events: none;
+        }
+
+        .progress-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            z-index: 1;
+        }
+
+        .progress-thumb {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            background: white;
+            border: 3px solid var(--accent);
+            border-radius: 50%;
+            z-index: 10;
+            box-shadow: 0 0 10px rgba(124, 58, 237, 0.5), 0 2px 4px rgba(0,0,0,0.3);
+            pointer-events: none;
+            transition: left 0.05s ease, transform 0.1s;
+        }
+
+        .progress-thumb.active {
+            transform: translate(-50%, -50%) scale(1.2);
+            box-shadow: 0 0 15px rgba(124, 58, 237, 0.8), 0 2px 8px rgba(0,0,0,0.4);
+        }
+
+        .progress-tooltip {
+            position: absolute;
+            bottom: 35px;
+            transform: translateX(-50%);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            border: 1px solid var(--border);
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+            white-space: nowrap;
+            z-index: 25;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .progress-container:hover .progress-tooltip,
+        .progress-container.dragging .progress-tooltip {
+            opacity: 1;
+        }
+
+        .bottom-info {
+            position: absolute;
+            bottom: calc(var(--safe-bottom) + 3.5rem);
+            left: 0;
+            width: 100%;
+            padding: 0 2rem;
+            padding-left: calc(2rem + var(--safe-left));
+            padding-right: calc(2rem + var(--safe-right));
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+            z-index: 15;
+        }
+
+        .para-info {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .para-tag {
+            background: var(--bg-tertiary);
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            border: 1px solid var(--border);
+        }
+
+        .para-tag.new {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+            border-color: var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        .progress-text {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .controls-container {
+            display: none;
+            padding: 1rem 2rem;
+            padding-bottom: calc(1rem + var(--safe-bottom));
+            gap: 1rem;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .controls-container.visible {
+            display: flex;
+        }
+
+        .controls-container button {
+            flex: 1;
+            max-width: 200px;
+            padding: 1rem;
+            font-size: 1.1rem;
+        }
+
+        .font-size-display {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            min-width: 60px;
+        }
+
+        @media (orientation: landscape) and (max-height: 500px) {
+            .settings-panel {
+                padding: 0.5rem 1rem;
+                padding-top: calc(0.5rem + env(safe-area-inset-top, 0px));
+            }
+            
+            .input-group {
+                font-size: 0.8rem;
+            }
+            
+            .lines-container {
+                padding: 1rem 4rem;
+            }
+            
+            .line-current {
+                margin: 0.5rem 0;
+            }
+            
+            .line-prev, .line-next {
+                font-size: 1rem;
+            }
+            
+            .click-hint {
+                font-size: 2rem;
+                padding: 1rem;
+            }
+            
+            .controls-container {
+                padding: 0.5rem 2rem;
+                padding-bottom: calc(0.5rem + var(--safe-bottom));
+            }
+            
+            .controls-container button {
+                padding: 0.6rem;
+                font-size: 0.9rem;
+            }
+
+            .paragraph-indicator {
+                font-size: 0.8rem;
+                padding: 0.4rem 1rem;
+                top: 4rem;
+            }
+
+            .para-info {
+                font-size: 0.75rem;
+            }
+
+            .bottom-info {
+                padding: 0 1rem;
+                padding-left: calc(1rem + var(--safe-left));
+                padding-right: calc(1rem + var(--safe-right));
+                bottom: calc(var(--safe-bottom) + 3rem);
+            }
+
+            .progress-tooltip {
+                font-size: 0.7rem;
+                padding: 0.3rem 0.6rem;
+            }
+
+            .progress-wrapper {
+                bottom: calc(var(--safe-bottom) + 0.3rem);
+                width: calc(100% - 1rem - var(--safe-left) - var(--safe-right));
+            }
+
+            .para-mark {
+                height: 12px;
+                top: -3px;
+            }
+        }
+
+        @media (max-width: 768px) and (orientation: portrait) {
+            .lines-container {
+                padding: 1rem;
+            }
+            
+            .click-hint {
+                font-size: 2rem;
+            }
+
+            .bottom-info {
+                padding: 0 1rem;
+                padding-left: calc(1rem + var(--safe-left));
+                padding-right: calc(1rem + var(--safe-right));
+                bottom: calc(var(--safe-bottom) + 3.5rem);
+            }
+
+            .para-info {
+                font-size: 0.75rem;
+            }
+
+            .progress-text {
+                font-size: 0.75rem;
+            }
+
+            .time-display {
+                font-size: 0.8rem;
+                right: calc(3.5rem + var(--safe-right));
+                top: calc(0.8rem + env(safe-area-inset-top, 0px));
+            }
+
+            .toggle-settings {
+                top: calc(0.5rem + env(safe-area-inset-top, 0px));
+                right: calc(0.5rem + var(--safe-right));
+            }
+
+            .progress-wrapper {
+                width: calc(100% - 1rem - var(--safe-left) - var(--safe-right));
+            }
+
+            .para-mark {
+                width: 2px;
+            }
+        }
+
+        .hint {
+            position: fixed;
+            bottom: 7rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-tertiary);
+            padding: 0.8rem 1.5rem;
+            border-radius: 20px;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            border: 1px solid var(--border);
+            z-index: 100;
+        }
+
+        .hint.show {
+            opacity: 1;
+        }
+
+        .settings-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .toggle-btn {
+            font-size: 0.8rem;
+            padding: 0.4rem 0.8rem;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .reader-view {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="time-display" id="clockTime">00:00</div>
+
+    <button class="toggle-settings secondary" onclick="toggleSettings()" title="切换设置面板">⚙️</button>
+
+    <div class="settings-panel" id="settingsPanel">
+        <div class="settings-group">
+            <div class="input-group">
+                <label>每行字数:</label>
+                <div class="number-control">
+                    <button onclick="adjustCharCount(-5)" title="减少5字">−</button>
+                    <span class="value" id="charPerLineDisplay">40</span>
+                    <button onclick="adjustCharCount(5)" title="增加5字">+</button>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>当前字号:</label>
+                <span class="font-size-display" id="currentFontSize">自动</span>
+            </div>
+            <div class="input-group">
+                <label>行距:</label>
+                <input type="range" id="lineHeight" min="1" max="3" step="0.1" value="1.6">
+            </div>
+            <div class="input-group">
+                <label>按钮:</label>
+                <button class="toggle-btn secondary" id="toggleControlsBtn" onclick="toggleControls()">隐藏</button>
+            </div>
+            <button onclick="startReading()" id="startBtn">开始</button>
+            <button onclick="backToEdit()" class="secondary" id="backBtn" style="display:none;">返回</button>
+        </div>
+    </div>
+
+    <div class="input-section" id="inputSection">
+        <textarea id="textInput" placeholder="在这里粘贴你要抄写的文本...&#10;&#10;使用说明：&#10;• 使用 +/- 调整每行字数，字体大小会自动适应屏幕&#10;• 点击开始后，屏幕左半边点击=上一句，右半边点击=下一句&#10;• 电脑可用 ← → 方向键或空格切换&#10;• 进入新段落时会有绿色提示&#10;• 底部进度条可拖动，绿色标记始终显示段落位置&#10;• 横屏时建议隐藏底部按钮，使用点击区域操作"></textarea>
+        <div style="color: var(--text-secondary); font-size: 0.9rem; text-align: center;">
+            已输入 <span id="inputCount">0</span> 字 · 预计 <span id="lineCount">0</span> 行 · <span id="paraCount">0</span> 段
+        </div>
+    </div>
+
+    <div class="reader-view" id="readerView">
+        <div class="text-display" id="textDisplay">
+            <div class="paragraph-indicator" id="paraIndicator">新段落</div>
+
+            <div class="click-area click-area-left" id="leftArea" data-side="left">
+                <div class="click-hint">←</div>
+            </div>
+            <div class="click-area click-area-right" id="rightArea" data-side="right">
+                <div class="click-hint">→</div>
+            </div>
+
+            <div class="lines-container" id="linesContainer">
+                <div class="line line-prev" id="linePrev"></div>
+                <div class="line line-current" id="lineCurrent"></div>
+                <div class="line line-next" id="lineNext"></div>
+            </div>
+
+            <div class="progress-wrapper" id="progressWrapper">
+                <div class="progress-container" id="progressContainer">
+                    <div class="progress-track" id="progressTrack">
+                        <div class="progress-bg"></div>
+                        <div class="progress-fill" id="progressFill"></div>
+                        <div class="para-marks-container" id="paraMarksContainer"></div>
+                        <div class="progress-thumb" id="progressThumb"></div>
+                    </div>
+                    <div class="progress-tooltip" id="progressTooltip">第 1 行</div>
+                </div>
+            </div>
+
+            <div class="bottom-info">
+                <div class="para-info">
+                    <span class="para-tag" id="paraTag">第 1 段</span>
+                </div>
+                <div class="progress-text" id="progressText">0 / 0</div>
+            </div>
+        </div>
+
+        <div class="controls-container visible" id="controlsContainer">
+            <button onclick="prevLine()" class="secondary">← 上一句</button>
+            <button onclick="nextLine()">下一句 →</button>
+        </div>
+    </div>
+
+    <div class="hint" id="hint"></div>
+
+    <script>
+        let lines = [];
+        let paragraphMap = [];
+        let currentIndex = 0;
+        let isReading = false;
+        let showControls = true;
+        let currentParagraph = 0;
+        let currentFontSize = 32;
+        let charPerLine = 40; // 当前每行字数
+        
+        let touchState = {
+            isActive: false,
+            activeSide: null,
+            startX: 0,
+            startY: 0,
+            startTime: 0,
+            isScrolling: false
+        };
+
+        let dragState = {
+            isDragging: false,
+            startX: 0,
+            containerWidth: 0
+        };
+
+        // 监听输入
+        document.getElementById('textInput').addEventListener('input', function() {
+            document.getElementById('inputCount').textContent = this.value.length;
+            splitText();
+        });
+
+        // 行距改变时更新
+        document.getElementById('lineHeight').addEventListener('input', function() {
+            if (isReading) {
+                updateDisplay();
+            }
+        });
+
+        // 调整字数
+        function adjustCharCount(delta) {
+            const newValue = charPerLine + delta;
+            if (newValue < 5 || newValue > 100) return;
+            
+            charPerLine = newValue;
+            document.getElementById('charPerLineDisplay').textContent = charPerLine;
+            
+            // 重新分段
+            splitText();
+            
+            // 如果在阅读模式，重新计算字体大小并更新
+            if (isReading) {
+                calculateOptimalFontSize();
+                updateDisplay();
+                updateParaMarks();
+                showHint(`每行字数: ${charPerLine}，字号: ${currentFontSize}px`);
+            }
+        }
+
+        // 严格按字数分段，不处理标点
+        function splitText() {
+            const text = document.getElementById('textInput').value;
+            
+            if (!text) {
+                document.getElementById('lineCount').textContent = '0';
+                document.getElementById('paraCount').textContent = '0';
+                return;
+            }
+
+            lines = [];
+            paragraphMap = [];
+            
+            // 按段落分割（保留空段落信息）
+            const paragraphs = text.split('\n');
+            let paraIndex = 0;
+            
+            paragraphs.forEach((para, idx) => {
+                // 空段落也计数，但不生成行
+                if (!para.trim()) {
+                    paraIndex++;
+                    return;
+                }
+                
+                // 严格按字数切割，不处理标点
+                for (let i = 0; i < para.length; i += charPerLine) {
+                    const chunk = para.slice(i, i + charPerLine);
+                    lines.push(chunk);
+                    paragraphMap.push(paraIndex);
+                }
+                
+                paraIndex++;
+            });
+
+            document.getElementById('lineCount').textContent = lines.length;
+            document.getElementById('paraCount').textContent = paraIndex;
+        }
+
+        // 计算最优字体大小 - 确保所有文本可见
+        function calculateOptimalFontSize() {
+            const container = document.getElementById('linesContainer');
+            const availableWidth = container.clientWidth - 32; // 减去padding
+            
+            // 创建测试元素
+            const testElement = document.createElement('span');
+            testElement.style.visibility = 'hidden';
+            testElement.style.position = 'absolute';
+            testElement.style.whiteSpace = 'nowrap';
+            testElement.style.fontFamily = 'inherit';
+            // 使用一个"宽"字符作为参考（如"国"）
+            testElement.textContent = '国'.repeat(charPerLine);
+            document.body.appendChild(testElement);
+            
+            // 二分查找
+            let minSize = 12;
+            let maxSize = 100;
+            let optimalSize = 32;
+            
+            while (minSize <= maxSize) {
+                const mid = Math.floor((minSize + maxSize) / 2);
+                testElement.style.fontSize = mid + 'px';
+                const textWidth = testElement.getBoundingClientRect().width;
+                
+                // 留出15%边距
+                if (textWidth < availableWidth * 0.85) {
+                    optimalSize = mid;
+                    minSize = mid + 1;
+                } else {
+                    maxSize = mid - 1;
+                }
+            }
+            
+            document.body.removeChild(testElement);
+            
+            // 限制范围
+            optimalSize = Math.max(14, Math.min(60, optimalSize));
+            currentFontSize = optimalSize;
+            
+            document.getElementById('currentFontSize').textContent = optimalSize + 'px';
+            
+            return optimalSize;
+        }
+
+        function initClickAreas() {
+            const leftArea = document.getElementById('leftArea');
+            const rightArea = document.getElementById('rightArea');
+            
+            leftArea.addEventListener('touchstart', handleTouchStart, { passive: false });
+            leftArea.addEventListener('touchend', handleTouchEnd, { passive: false });
+            leftArea.addEventListener('touchmove', handleTouchMove, { passive: false });
+            leftArea.addEventListener('touchcancel', handleTouchCancel, { passive: false });
+            
+            rightArea.addEventListener('touchstart', handleTouchStart, { passive: false });
+            rightArea.addEventListener('touchend', handleTouchEnd, { passive: false });
+            rightArea.addEventListener('touchmove', handleTouchMove, { passive: false });
+            rightArea.addEventListener('touchcancel', handleTouchCancel, { passive: false });
+            
+            leftArea.addEventListener('mousedown', handleMouseDown);
+            leftArea.addEventListener('mouseup', handleMouseUp);
+            leftArea.addEventListener('mouseleave', handleMouseLeave);
+            
+            rightArea.addEventListener('mousedown', handleMouseDown);
+            rightArea.addEventListener('mouseup', handleMouseUp);
+            rightArea.addEventListener('mouseleave', handleMouseLeave);
+        }
+
+        function handleTouchStart(e) {
+            e.preventDefault();
+            
+            const side = this.dataset.side;
+            
+            if (touchState.isActive && touchState.activeSide !== side) {
+                return;
+            }
+            
+            const touch = e.touches[0];
+            touchState = {
+                isActive: true,
+                activeSide: side,
+                startX: touch.clientX,
+                startY: touch.clientY,
+                startTime: Date.now(),
+                isScrolling: false
+            };
+            
+            this.classList.add('tapped');
+        }
+
+        function handleTouchMove(e) {
+            if (!touchState.isActive) return;
+            
+            const touch = e.touches[0];
+            const deltaX = Math.abs(touch.clientX - touchState.startX);
+            const deltaY = Math.abs(touch.clientY - touchState.startY);
+            
+            if (deltaX > 10 || deltaY > 10) {
+                touchState.isScrolling = true;
+                document.querySelectorAll('.click-area').forEach(area => {
+                    area.classList.remove('tapped');
+                });
+            }
+        }
+
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            
+            const side = this.dataset.side;
+            
+            if (!touchState.isActive || touchState.activeSide !== side) {
+                return;
+            }
+            
+            const duration = Date.now() - touchState.startTime;
+            
+            this.classList.add('tapped');
+            setTimeout(() => {
+                this.classList.remove('tapped');
+            }, 150);
+            
+            if (!touchState.isScrolling && duration < 500) {
+                if (side === 'left') {
+                    prevLine();
+                } else {
+                    nextLine();
+                }
+            }
+            
+            touchState = {
+                isActive: false,
+                activeSide: null,
+                startX: 0,
+                startY: 0,
+                startTime: 0,
+                isScrolling: false
+            };
+        }
+
+        function handleTouchCancel(e) {
+            document.querySelectorAll('.click-area').forEach(area => {
+                area.classList.remove('tapped');
+            });
+            touchState = {
+                isActive: false,
+                activeSide: null,
+                startX: 0,
+                startY: 0,
+                startTime: 0,
+                isScrolling: false
+            };
+        }
+
+        let mouseState = {
+            isDown: false,
+            startX: 0,
+            startY: 0
+        };
+
+        function handleMouseDown(e) {
+            mouseState = {
+                isDown: true,
+                startX: e.clientX,
+                startY: e.clientY
+            };
+            this.classList.add('tapped');
+        }
+
+        function handleMouseUp(e) {
+            if (!mouseState.isDown) return;
+            
+            const deltaX = Math.abs(e.clientX - mouseState.startX);
+            const deltaY = Math.abs(e.clientY - mouseState.startY);
+            const side = this.dataset.side;
+            
+            if (deltaX < 5 && deltaY < 5) {
+                if (side === 'left') {
+                    prevLine();
+                } else {
+                    nextLine();
+                }
+            }
+            
+            mouseState.isDown = false;
+            this.classList.remove('tapped');
+        }
+
+        function handleMouseLeave(e) {
+            mouseState.isDown = false;
+            this.classList.remove('tapped');
+        }
+
+        function initProgressBar() {
+            const container = document.getElementById('progressContainer');
+            const wrapper = document.getElementById('progressWrapper');
+            
+            container.addEventListener('mousedown', handleProgressMouseDown);
+            document.addEventListener('mousemove', handleProgressMouseMove);
+            document.addEventListener('mouseup', handleProgressMouseUp);
+            
+            wrapper.addEventListener('touchstart', handleProgressTouchStart, { passive: false });
+            document.addEventListener('touchmove', handleProgressTouchMove, { passive: false });
+            document.addEventListener('touchend', handleProgressTouchEnd);
+            document.addEventListener('touchcancel', handleProgressTouchEnd);
+            
+            container.addEventListener('click', handleProgressClick);
+        }
+
+        function getProgressFromX(clientX) {
+            const track = document.getElementById('progressTrack');
+            const rect = track.getBoundingClientRect();
+            const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+            return { percentage: x / rect.width, width: rect.width };
+        }
+
+        function updateProgressUI(percentage) {
+            const progressFill = document.getElementById('progressFill');
+            const progressThumb = document.getElementById('progressThumb');
+            const progressTooltip = document.getElementById('progressTooltip');
+            
+            const percentStr = (percentage * 100) + '%';
+            progressFill.style.width = percentStr;
+            progressThumb.style.left = percentStr;
+            progressTooltip.style.left = percentStr;
+            
+            const newIndex = Math.floor(percentage * lines.length);
+            if (newIndex >= 0 && newIndex < lines.length) {
+                const paraNum = paragraphMap[newIndex] + 1;
+                progressTooltip.textContent = `第 ${newIndex + 1} 行 · 第 ${paraNum} 段`;
+            }
+        }
+
+        function handleProgressMouseDown(e) {
+            e.preventDefault();
+            dragState.isDragging = true;
+            document.getElementById('progressContainer').classList.add('dragging');
+            document.getElementById('progressThumb').classList.add('active');
+            
+            const { percentage } = getProgressFromX(e.clientX);
+            updateProgressUI(percentage);
+            updateProgressFromPercentage(percentage);
+        }
+
+        function handleProgressMouseMove(e) {
+            if (!dragState.isDragging) return;
+            e.preventDefault();
+            
+            const { percentage } = getProgressFromX(e.clientX);
+            updateProgressUI(percentage);
+            updateProgressFromPercentage(percentage);
+        }
+
+        function handleProgressMouseUp(e) {
+            if (!dragState.isDragging) return;
+            dragState.isDragging = false;
+            document.getElementById('progressContainer').classList.remove('dragging');
+            document.getElementById('progressThumb').classList.remove('active');
+        }
+
+        function handleProgressTouchStart(e) {
+            const container = document.getElementById('progressContainer');
+            const rect = container.getBoundingClientRect();
+            const touch = e.touches[0];
+            
+            if (touch.clientY < rect.top - 20 || touch.clientY > rect.bottom + 20) {
+                return;
+            }
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            dragState.isDragging = true;
+            document.getElementById('progressContainer').classList.add('dragging');
+            document.getElementById('progressThumb').classList.add('active');
+            
+            const { percentage } = getProgressFromX(touch.clientX);
+            updateProgressUI(percentage);
+            updateProgressFromPercentage(percentage);
+        }
+
+        function handleProgressTouchMove(e) {
+            if (!dragState.isDragging) return;
+            e.preventDefault();
+            
+            const touch = e.touches[0];
+            const { percentage } = getProgressFromX(touch.clientX);
+            updateProgressUI(percentage);
+            updateProgressFromPercentage(percentage);
+        }
+
+        function handleProgressTouchEnd(e) {
+            if (!dragState.isDragging) return;
+            dragState.isDragging = false;
+            document.getElementById('progressContainer').classList.remove('dragging');
+            document.getElementById('progressThumb').classList.remove('active');
+        }
+
+        function handleProgressClick(e) {
+            if (dragState.isDragging) return;
+            
+            const { percentage } = getProgressFromX(e.clientX);
+            updateProgressUI(percentage);
+            updateProgressFromPercentage(percentage);
+        }
+
+        function updateProgressFromPercentage(percentage) {
+            const newIndex = Math.floor(percentage * lines.length);
+            if (newIndex >= 0 && newIndex < lines.length && newIndex !== currentIndex) {
+                checkParagraphChange(newIndex);
+                currentIndex = newIndex;
+                updateDisplay();
+            }
+        }
+
+        function updateParaMarks() {
+            const container = document.getElementById('paraMarksContainer');
+            container.innerHTML = '';
+            
+            if (lines.length === 0) return;
+            
+            const paraStarts = [];
+            
+            for (let i = 0; i < paragraphMap.length; i++) {
+                if (i === 0 || paragraphMap[i] !== paragraphMap[i - 1]) {
+                    paraStarts.push({ index: i, para: paragraphMap[i] });
+                }
+            }
+            
+            paraStarts.forEach((start, idx) => {
+                if (idx === 0) return;
+                
+                const mark = document.createElement('div');
+                mark.className = 'para-mark';
+                
+                const percent = (start.index / lines.length) * 100;
+                let displayPercent = percent;
+                if (percent > 99) displayPercent = 99;
+                if (percent < 1) displayPercent = 1;
+                
+                mark.style.left = displayPercent + '%';
+                mark.setAttribute('data-para', '¶' + (start.para + 1));
+                mark.title = `第 ${start.para + 1} 段开始`;
+                
+                container.appendChild(mark);
+            });
+        }
+
+        function toggleControls() {
+            showControls = !showControls;
+            const btn = document.getElementById('toggleControlsBtn');
+            const container = document.getElementById('controlsContainer');
+            
+            if (showControls) {
+                btn.textContent = '隐藏';
+                btn.classList.remove('active');
+                container.classList.add('visible');
+            } else {
+                btn.textContent = '显示';
+                btn.classList.add('active');
+                container.classList.remove('visible');
+            }
+        }
+
+        function showParagraphIndicator(paraIndex) {
+            const indicator = document.getElementById('paraIndicator');
+            const totalParas = Math.max(...paragraphMap) + 1;
+            
+            indicator.textContent = `第 ${paraIndex + 1} / ${totalParas} 段`;
+            indicator.classList.add('show');
+            
+            const tag = document.getElementById('paraTag');
+            tag.textContent = `第 ${paraIndex + 1} 段`;
+            tag.classList.add('new');
+            
+            setTimeout(() => {
+                indicator.classList.remove('show');
+            }, 2000);
+            
+            setTimeout(() => {
+                tag.classList.remove('new');
+            }, 4000);
+        }
+
+        function checkParagraphChange(newIndex) {
+            if (newIndex < 0 || newIndex >= lines.length) return;
+            
+            const newPara = paragraphMap[newIndex];
+            if (newPara !== currentParagraph) {
+                currentParagraph = newPara;
+                showParagraphIndicator(newPara);
+            }
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('clockTime').textContent = `${hours}:${minutes}`;
+        }
+
+        function startReading() {
+            if (lines.length === 0) {
+                showHint('请先输入文本！');
+                return;
+            }
+
+            currentIndex = 0;
+            currentParagraph = paragraphMap[0] || 0;
+            isReading = true;
+            
+            document.getElementById('inputSection').style.display = 'none';
+            document.getElementById('readerView').classList.add('active');
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('backBtn').style.display = 'inline-block';
+            
+            calculateOptimalFontSize();
+            updateParaMarks();
+            initClickAreas();
+            initProgressBar();
+            
+            if (window.innerWidth > window.innerHeight && window.innerHeight < 500) {
+                if (showControls) {
+                    showHint('横屏模式：建议隐藏底部按钮');
+                }
+            }
+            
+            updateDisplay();
+            showHint(`每行${charPerLine}字，字号${currentFontSize}px · 点击左右区域翻页`);
+        }
+
+        function backToEdit() {
+            isReading = false;
+            document.getElementById('inputSection').style.display = 'flex';
+            document.getElementById('readerView').classList.remove('active');
+            document.getElementById('startBtn').style.display = 'inline-block';
+            document.getElementById('backBtn').style.display = 'none';
+            
+            // 强制隐藏键盘
+            document.getElementById('textInput').blur();
+        }
+
+        function updateDisplay() {
+            if (!isReading) return;
+
+            const lineHeight = document.getElementById('lineHeight').value;
+            
+            // 应用字体大小
+            document.querySelectorAll('.line').forEach(line => {
+                line.style.fontSize = currentFontSize + 'px';
+                line.style.lineHeight = lineHeight;
+            });
+
+            const prevLine = document.getElementById('linePrev');
+            const currentLine = document.getElementById('lineCurrent');
+            const nextLine = document.getElementById('lineNext');
+
+            // 设置文本内容
+            if (currentIndex > 0) {
+                prevLine.textContent = lines[currentIndex - 1];
+                prevLine.style.opacity = '0.4';
+            } else {
+                prevLine.textContent = '—— 开始 ——';
+                prevLine.style.opacity = '0.2';
+            }
+
+            currentLine.innerHTML = `<span class="fade-in">${lines[currentIndex]}</span>`;
+            
+            if (currentIndex < lines.length - 1) {
+                nextLine.textContent = lines[currentIndex + 1];
+                nextLine.style.opacity = '0.7';
+            } else {
+                nextLine.textContent = '—— 结束 ——';
+                nextLine.style.opacity = '0.2';
+            }
+
+            // 更新进度条
+            const progress = ((currentIndex + 1) / lines.length) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+            document.getElementById('progressThumb').style.left = progress + '%';
+            document.getElementById('progressText').textContent = `${currentIndex + 1} / ${lines.length}`;
+            
+            const paraNum = paragraphMap[currentIndex] + 1;
+            document.getElementById('progressTooltip').textContent = `第 ${currentIndex + 1} 行 · 第 ${paraNum} 段`;
+            document.getElementById('progressTooltip').style.left = progress + '%';
+
+            const totalParas = Math.max(...paragraphMap) + 1;
+            const tag = document.getElementById('paraTag');
+            tag.textContent = `第 ${currentParagraph + 1} / ${totalParas} 段`;
+        }
+
+        function prevLine() {
+            if (currentIndex > 0) {
+                checkParagraphChange(currentIndex - 1);
+                currentIndex--;
+                updateDisplay();
+            } else {
+                showHint('已经是第一句了');
+            }
+        }
+
+        function nextLine() {
+            if (currentIndex < lines.length - 1) {
+                checkParagraphChange(currentIndex + 1);
+                currentIndex++;
+                updateDisplay();
+            } else {
+                showHint('已经抄完了！');
+            }
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (!isReading) return;
+
+            switch(e.key) {
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    prevLine();
+                    break;
+                case 'ArrowRight':
+                case ' ':
+                    e.preventDefault();
+                    nextLine();
+                    break;
+                case 'Escape':
+                    backToEdit();
+                    break;
+            }
+        });
+
+        function toggleSettings() {
+            const panel = document.getElementById('settingsPanel');
+            panel.classList.toggle('hidden');
+            
+            // 隐藏键盘
+            if (document.activeElement) {
+                document.activeElement.blur();
+            }
+        }
+
+        function showHint(msg) {
+            const hint = document.getElementById('hint');
+            hint.textContent = msg;
+            hint.classList.add('show');
+            setTimeout(() => hint.classList.remove('show'), 2500);
+        }
+
+        // 窗口大小改变时重新计算
+        let resizeTimer;
+        window.addEventListener('resize', function() {
+            if (!isReading) return;
+            
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                calculateOptimalFontSize();
+                updateDisplay();
+                updateParaMarks();
+            }, 250);
+        });
+
+        document.addEventListener('touchmove', function(e) {
+            if (!isReading) return;
+            
+            if (dragState.isDragging) {
+                return;
+            }
+            
+            const wrapper = document.getElementById('progressWrapper');
+            if (wrapper && wrapper.contains(e.target)) {
+                return;
+            }
+            
+            e.preventDefault();
+        }, { passive: false });
+
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function(e) {
+            const now = Date.now();
+            if (now - lastTouchEnd <= 300) {
+                e.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+
+        window.addEventListener('keydown', function(e) {
+            if (e.key === ' ' && e.target === document.body) {
+                e.preventDefault();
+            }
+        });
+
+        updateClock();
+        setInterval(updateClock, 1000);
+    </script>
+</body>
+</html>
