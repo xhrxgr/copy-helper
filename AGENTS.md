@@ -179,3 +179,4 @@
 - `08da962` 2026-07-25 — Add memory feature and fix 6 bugs（已推送 origin/main，Pages 已生效）
 - `52f5ccb` 2026-07-25 — docs: add changelog section to README（已推送 origin/main）
 - `15ba288` 2026-07-25 — feat: history drawer, import/export txt, fullscreen, UI fixes（已推送 origin/main）
+- `9fa0417` 2026-07-25 — fix: landscape button overlap, move import/export into More menu（已推送 origin/main）
