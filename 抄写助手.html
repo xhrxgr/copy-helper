@@ -862,6 +862,36 @@
                 height: 12px;
                 top: -3px;
             }
+
+            /* 横屏下右上角按钮组缩小，避免遮挡设置面板内容 */
+            .top-actions {
+                top: calc(0.4rem + env(safe-area-inset-top, 0px));
+                right: calc(0.5rem + var(--safe-right));
+                gap: 0.25rem;
+            }
+
+            .icon-btn {
+                width: 32px;
+                height: 32px;
+                font-size: 0.9rem;
+            }
+
+            /* 时间显示移到左上角避免和按钮组挤在一起 */
+            .time-display {
+                top: calc(0.5rem + env(safe-area-inset-top, 0px));
+                left: calc(1rem + var(--safe-left));
+                right: auto;
+                font-size: 0.75rem;
+            }
+
+            /* 设置面板内容避开右上角按钮组 */
+            .settings-panel {
+                padding-right: calc(7rem + var(--safe-right));
+            }
+
+            .settings-group {
+                gap: 0.5rem 0.8rem;
+            }
         }
 
         @media (max-width: 768px) and (orientation: portrait) {
@@ -953,6 +983,64 @@
             padding: 0.4rem 0.8rem;
         }
 
+        /* "更多" 下拉菜单 */
+        .more-menu-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        .more-menu {
+            position: absolute;
+            top: calc(100% + 4px);
+            right: 0;
+            min-width: 180px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.3rem;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+            z-index: 150;
+            display: none;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .more-menu.show {
+            display: flex;
+        }
+
+        .more-menu button {
+            width: 100%;
+            text-align: left;
+            padding: 0.55rem 0.8rem;
+            font-size: 0.85rem;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background 0.15s;
+        }
+
+        .more-menu button:hover {
+            background: var(--border);
+        }
+
+        .more-menu button.danger {
+            color: var(--text-secondary);
+        }
+
+        .more-menu button.danger:hover {
+            background: rgba(239, 68, 68, 0.15);
+            color: #fca5a5;
+        }
+
+        .more-menu-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 0.2rem 0;
+        }
+
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
@@ -1007,10 +1095,16 @@
             <button onclick="startReading()" id="startBtn">开始</button>
             <button onclick="restartReading()" class="secondary" id="restartBtn" style="display:none;" title="从第一行重新开始">从头开始</button>
             <button onclick="backToEdit()" class="secondary" id="backBtn" style="display:none;">返回</button>
-            <button onclick="exportTxt()" class="secondary" id="exportBtn" title="把当前文本导出为 .txt 文件">⬇ 导出txt</button>
-            <button onclick="document.getElementById('importFileInput').click()" class="secondary" id="importBtn" title="从 .txt 文件导入文本">⬆ 导入txt</button>
+            <div class="more-menu-wrapper">
+                <button onclick="toggleMoreMenu(event)" class="secondary" id="moreBtn" title="更多操作">更多 ⋯</button>
+                <div class="more-menu" id="moreMenu" role="menu">
+                    <button onclick="exportTxt(); toggleMoreMenu(false)" role="menuitem" title="把当前文本导出为 .txt 文件">⬇ 导出 txt</button>
+                    <button onclick="document.getElementById('importFileInput').click(); toggleMoreMenu(false)" role="menuitem" title="从 .txt 文件导入文本">⬆ 导入 txt</button>
+                    <div class="more-menu-divider"></div>
+                    <button onclick="clearMemory(); toggleMoreMenu(false)" role="menuitem" title="清除当前文档记忆（不影响历史列表）" class="danger">🗑️ 清除当前记忆</button>
+                </div>
+            </div>
             <input type="file" id="importFileInput" accept=".txt,text/plain" style="display:none;" onchange="importTxt(event)">
-            <button onclick="clearMemory()" class="secondary" id="clearMemoryBtn" title="清除当前文档记忆（不影响历史列表）">🗑️ 清除当前记忆</button>
         </div>
     </div>
 
@@ -1781,11 +1875,31 @@
             btn.textContent = isHidden ? '☰' : '✕';
             btn.classList.toggle('active', !isHidden);
 
+            // 关闭设置面板时同步关闭更多菜单
+            if (isHidden) toggleMoreMenu(false);
+
             // 隐藏键盘
             if (document.activeElement) {
                 document.activeElement.blur();
             }
         }
+
+        // "更多 ⋯" 下拉菜单
+        function toggleMoreMenu(forceState) {
+            const menu = document.getElementById('moreMenu');
+            const btn = document.getElementById('moreBtn');
+            const wantOpen = forceState === undefined ? !menu.classList.contains('show') : forceState;
+            menu.classList.toggle('show', wantOpen);
+            btn.classList.toggle('active', wantOpen);
+        }
+
+        // 点击外部关闭更多菜单
+        document.addEventListener('click', function(e) {
+            const wrapper = document.querySelector('.more-menu-wrapper');
+            if (wrapper && !wrapper.contains(e.target)) {
+                toggleMoreMenu(false);
+            }
+        });
 
         function showHint(msg) {
             const hint = document.getElementById('hint');

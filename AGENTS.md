@@ -149,6 +149,19 @@
 - "按钮: 隐藏" → "底部按钮: 隐藏底部按钮 / 显示底部按钮"（消除歧义）
 - time-display 位置右移至 `right: calc(9.5rem + safe-right)` 避开 3 按钮
 
+## UI 改动（2026-07-25 二次优化）
+
+- **横屏按钮遮挡修复**：在 `@media (orientation: landscape) and (max-height: 500px)` 中：
+  - `.top-actions` 缩小：按钮 40px → 32px，gap 0.5rem → 0.25rem
+  - `.time-display` 移到左上角（`left: 1rem`，`right: auto`），避免和按钮组挤在右上角
+  - `.settings-panel` 加 `padding-right: 7rem` 让 wrap 出的内容避开按钮组
+  - `.settings-group` gap 收紧到 0.5rem 0.8rem
+- **"更多 ⋯" 二级菜单**：设置面板里的 导出/导入/清除当前记忆 3 个按钮收进下拉
+  - `.more-menu-wrapper` 相对定位，`.more-menu` 绝对定位 top:100%+4px right:0
+  - `toggleMoreMenu(forceState)` + 文档级 click 监听点击外部关闭
+  - 危险操作"清除当前记忆"用 `.danger` 类（hover 时红色）
+  - `toggleSettings` 收起面板时同步关闭更多菜单
+
 ## 待办 / 已知限制
 
 - 无字体大小手动调节（仅自动适配）；如需可加滑块
