@@ -100,10 +100,60 @@
 
 ## 待办 / 已知限制
 
-- 记忆功能仅保存单个文档（无历史列表）；如需多文档切换可扩展为 `copyHelper:history:v1` 数组
-- 无导入/导出功能（如需分享文本，用户需手动复制）
+- ~~记忆功能仅保存单个文档（无历史列表）~~ → 已实现历史文档列表（2026-07-25）
+- ~~无导入/导出功能~~ → 已实现 .txt 导入导出（2026-07-25）
 - 无字体大小手动调节（仅自动适配）；如需可加滑块
 - 阅读模式无自动滚动/翻页定时器；如需可加 setInterval
+
+## 历史文档列表（2026-07-25 新增）
+
+- **存储 key**：`copyHelper:history:v1`（localStorage，独立于 memory）
+- **数据结构**：`[{id, title, text, charPerLine, lineHeight, currentIndex, currentParagraph, savedAt, lastReadAt}]`
+- **自动保存**：`saveMemory` 时同步调用 `autoSaveToHistory()`，文本 ≥ 50 字才保存
+  - 有 `currentDocId` → 更新对应文档
+  - 无 `currentDocId` 但有相同文本 → 复用并更新
+  - 全新文本 → 创建新文档，unshift 到列表
+- **排序**：按 `lastReadAt` 降序
+- **上限**：保留最新 50 篇（HISTORY_MAX）
+- **标题**：第一行前 20 字（`makeDocTitle`）
+- **UI**：左侧抽屉（`#historyDrawer` + `#drawerOverlay`），从左滑出
+- **关键函数**：
+  - `loadHistory()` / `saveHistory(history)` — 读写
+  - `autoSaveToHistory()` — 自动保存（在 saveMemory 中调用）
+  - `loadHistoryDoc(id)` — 加载文档到编辑区（更新 lastReadAt）
+  - `deleteHistoryDoc(id)` / `clearAllHistory()` — 删除
+  - `renderHistoryList()` — 渲染抽屉列表（带时间格式化"X 分钟前"）
+  - `toggleHistoryDrawer(forceState)` — 打开/关闭抽屉
+  - `escapeHtml(str)` — 标题转义（防 XSS）
+- **memory 中新增字段**：`currentDocId` 跟踪当前文档在历史中的 ID
+- **clearMemory 行为**：只清当前 memory，不影响历史列表
+
+## 全屏功能（2026-07-25 新增）
+
+- **API**：Fullscreen API + webkit 前缀兼容
+- **按钮**：右上角 `#fullscreenBtn`（⛶ / ⤡）
+- **关键函数**：`toggleFullscreen()` + `updateFullscreenBtn()`（监听 fullscreenchange）
+- **限制**：Fullscreen API 需用户手势触发（已在 onclick 中），iOS Safari 部分支持
+
+## 导入/导出 .txt（2026-07-25 新增）
+
+- **导出**：`exportTxt()` — Blob + a.download，文件名用第一行前 20 字（过滤非法字符 `\/:*?"<>|`）
+- **导入**：`importTxt(event)` — FileReader.readAsText(file, 'UTF-8')，限制 10MB
+- **UI**：设置面板内 `⬇ 导出txt` / `⬆ 导入txt` 按钮
+- **导入行为**：重置 `currentDocId=null`，让自动保存创建新文档
+
+## UI 改动（2026-07-25）
+
+- 右上角 `top-actions` 按钮组：全屏 ⛶ / 历史 📋 / 设置 ☰（替换原单一 ⚙️）
+- 设置按钮动态图标：面板展开 ✕ / 收起 ☰（`toggleSettings` 更新）
+- "按钮: 隐藏" → "底部按钮: 隐藏底部按钮 / 显示底部按钮"（消除歧义）
+- time-display 位置右移至 `right: calc(9.5rem + safe-right)` 避开 3 按钮
+
+## 待办 / 已知限制
+
+- 无字体大小手动调节（仅自动适配）；如需可加滑块
+- 阅读模式无自动滚动/翻页定时器；如需可加 setInterval
+- 历史文档无手动重命名（仅用第一行前 20 字）；如需可扩展
 
 ## 开发约定
 
@@ -114,4 +164,5 @@
 ## 提交记录
 
 - `08da962` 2026-07-25 — Add memory feature and fix 6 bugs（已推送 origin/main，Pages 已生效）
-- 下次：在 README 增加"更新日志"段落，说明本次新增的记忆功能（待提交）
+- `52f5ccb` 2026-07-25 — docs: add changelog section to README（已推送 origin/main）
+- 下次：feat: history drawer + import/export txt + fullscreen + UI fixes（待提交）

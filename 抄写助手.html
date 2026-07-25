@@ -47,7 +47,7 @@
         .time-display {
             position: fixed;
             top: 1rem;
-            right: calc(4rem + var(--safe-right));
+            right: calc(9.5rem + var(--safe-right));
             z-index: 90;
             color: var(--text-dim);
             font-size: 0.9rem;
@@ -179,10 +179,19 @@
         }
 
         .toggle-settings {
+            /* 兼容旧引用，实际样式由 .top-actions 提供 */
+        }
+
+        .top-actions {
             position: fixed;
             top: calc(1rem + env(safe-area-inset-top, 0px));
             right: calc(1rem + var(--safe-right));
             z-index: 100;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .icon-btn {
             width: 40px;
             height: 40px;
             border-radius: 50%;
@@ -190,7 +199,158 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .icon-btn:hover {
+            background: var(--border);
+            transform: translateY(-1px);
+        }
+
+        .icon-btn:active {
+            background: var(--accent);
+            color: white;
+        }
+
+        .icon-btn.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        /* 历史抽屉 */
+        .drawer-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 200;
+        }
+
+        .drawer-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .history-drawer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: min(320px, 85vw);
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+            z-index: 201;
+            display: flex;
+            flex-direction: column;
+            padding-top: env(safe-area-inset-top, 0px);
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        .history-drawer.open {
+            transform: translateX(0);
+        }
+
+        .drawer-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.2rem;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .drawer-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .drawer-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.5rem;
+        }
+
+        .drawer-empty {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            text-align: center;
+            padding: 2rem 1rem;
+        }
+
+        .history-item {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.7rem 0.9rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .history-item:hover {
+            border-color: var(--accent);
+            background: var(--border);
+        }
+
+        .history-item.active {
+            border-color: var(--accent);
+            background: rgba(124, 58, 237, 0.15);
+        }
+
+        .history-item-title {
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            font-weight: 500;
+            margin-bottom: 0.3rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .history-item-meta {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .history-item-actions {
+            display: flex;
+            gap: 0.4rem;
+            margin-top: 0.5rem;
+        }
+
+        .history-item-actions button {
+            flex: 1;
+            padding: 0.3rem 0.5rem;
+            font-size: 0.75rem;
+            border-radius: 5px;
+        }
+
+        .drawer-footer {
+            padding: 0.8rem 1rem;
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .drawer-footer button {
+            width: 100%;
+            padding: 0.6rem;
+            font-size: 0.85rem;
         }
 
         .input-section {
@@ -730,13 +890,25 @@
 
             .time-display {
                 font-size: 0.8rem;
-                right: calc(3.5rem + var(--safe-right));
+                right: calc(9rem + var(--safe-right));
                 top: calc(0.8rem + env(safe-area-inset-top, 0px));
             }
 
             .toggle-settings {
                 top: calc(0.5rem + env(safe-area-inset-top, 0px));
                 right: calc(0.5rem + var(--safe-right));
+            }
+
+            .top-actions {
+                top: calc(0.5rem + env(safe-area-inset-top, 0px));
+                right: calc(0.5rem + var(--safe-right));
+                gap: 0.3rem;
+            }
+
+            .icon-btn {
+                width: 36px;
+                height: 36px;
+                font-size: 1rem;
             }
 
             .progress-wrapper {
@@ -804,7 +976,11 @@
 <body>
     <div class="time-display" id="clockTime">00:00</div>
 
-    <button class="toggle-settings secondary" onclick="toggleSettings()" title="切换设置面板">⚙️</button>
+    <div class="top-actions">
+        <button class="icon-btn" id="fullscreenBtn" onclick="toggleFullscreen()" title="切换全屏 (F11)">⛶</button>
+        <button class="icon-btn" id="historyBtn" onclick="toggleHistoryDrawer()" title="历史文档">📋</button>
+        <button class="icon-btn toggle-settings" id="toggleSettingsBtn" onclick="toggleSettings()" title="收起/展开设置面板">☰</button>
+    </div>
 
     <div class="settings-panel" id="settingsPanel">
         <div class="settings-group">
@@ -825,13 +1001,16 @@
                 <input type="range" id="lineHeight" min="1" max="3" step="0.1" value="1.6">
             </div>
             <div class="input-group">
-                <label>按钮:</label>
-                <button class="toggle-btn secondary" id="toggleControlsBtn" onclick="toggleControls()">隐藏</button>
+                <label>底部按钮:</label>
+                <button class="toggle-btn secondary" id="toggleControlsBtn" onclick="toggleControls()">隐藏底部按钮</button>
             </div>
             <button onclick="startReading()" id="startBtn">开始</button>
             <button onclick="restartReading()" class="secondary" id="restartBtn" style="display:none;" title="从第一行重新开始">从头开始</button>
             <button onclick="backToEdit()" class="secondary" id="backBtn" style="display:none;">返回</button>
-            <button onclick="clearMemory()" class="secondary" id="clearMemoryBtn" title="清除保存的文本、进度和设置">🗑️ 清除记忆</button>
+            <button onclick="exportTxt()" class="secondary" id="exportBtn" title="把当前文本导出为 .txt 文件">⬇ 导出txt</button>
+            <button onclick="document.getElementById('importFileInput').click()" class="secondary" id="importBtn" title="从 .txt 文件导入文本">⬆ 导入txt</button>
+            <input type="file" id="importFileInput" accept=".txt,text/plain" style="display:none;" onchange="importTxt(event)">
+            <button onclick="clearMemory()" class="secondary" id="clearMemoryBtn" title="清除当前文档记忆（不影响历史列表）">🗑️ 清除当前记忆</button>
         </div>
     </div>
 
@@ -888,6 +1067,21 @@
 
     <div class="hint" id="hint"></div>
 
+    <!-- 历史文档抽屉 -->
+    <div class="drawer-overlay" id="drawerOverlay" onclick="toggleHistoryDrawer(false)"></div>
+    <aside class="history-drawer" id="historyDrawer" aria-hidden="true">
+        <div class="drawer-header">
+            <span class="drawer-title">📋 历史文档</span>
+            <button class="icon-btn" onclick="toggleHistoryDrawer(false)" title="关闭">✕</button>
+        </div>
+        <div class="drawer-body" id="historyList">
+            <div class="drawer-empty">暂无历史文档</div>
+        </div>
+        <div class="drawer-footer">
+            <button class="secondary" onclick="clearAllHistory()" title="清空所有历史文档">🗑️ 清空全部</button>
+        </div>
+    </aside>
+
     <script>
         let lines = [];
         let paragraphMap = [];
@@ -897,6 +1091,7 @@
         let currentParagraph = 0;
         let currentFontSize = 32;
         let charPerLine = 40; // 当前每行字数
+        let currentDocId = null; // 当前文档在历史列表中的 ID（null 表示新文档）
         
         let touchState = {
             isActive: false,
@@ -1363,11 +1558,11 @@
             const btn = document.getElementById('toggleControlsBtn');
             const container = document.getElementById('controlsContainer');
             if (showControls) {
-                btn.textContent = '隐藏';
+                btn.textContent = '隐藏底部按钮';
                 btn.classList.remove('active');
                 container.classList.add('visible');
             } else {
-                btn.textContent = '显示';
+                btn.textContent = '显示底部按钮';
                 btn.classList.add('active');
                 container.classList.remove('visible');
             }
@@ -1579,8 +1774,13 @@
 
         function toggleSettings() {
             const panel = document.getElementById('settingsPanel');
+            const btn = document.getElementById('toggleSettingsBtn');
             panel.classList.toggle('hidden');
-            
+            // 面板可见时按钮显示 ✕（收起），否则显示 ☰（展开）
+            const isHidden = panel.classList.contains('hidden');
+            btn.textContent = isHidden ? '☰' : '✕';
+            btn.classList.toggle('active', !isHidden);
+
             // 隐藏键盘
             if (document.activeElement) {
                 document.activeElement.blur();
@@ -1660,9 +1860,14 @@
                     currentIndex: currentIndex,
                     currentParagraph: currentParagraph,
                     isReading: isReading,
+                    currentDocId: currentDocId,
                     savedAt: Date.now()
                 };
                 localStorage.setItem(MEMORY_KEY, JSON.stringify(memory));
+                // 同步保存到历史文档（文本足够长才会保存）
+                if (typeof autoSaveToHistory === 'function') {
+                    autoSaveToHistory();
+                }
                 updateMemoryInfo();
             } catch (e) {
                 // localStorage 不可用或超出配额时静默失败
@@ -1704,6 +1909,11 @@
             }
             if (typeof memory.currentParagraph === 'number') {
                 currentParagraph = memory.currentParagraph;
+            }
+            if (typeof memory.currentDocId === 'string') {
+                currentDocId = memory.currentDocId;
+            } else {
+                currentDocId = null;
             }
             // 不自动进入阅读模式，让用户主动点击
             updateStartButton();
@@ -1748,7 +1958,7 @@
         function clearMemory() {
             const hasContent = lines.length > 0 || document.getElementById('textInput').value.length > 0;
             if (hasContent) {
-                if (!confirm('确定要清除记忆吗？这将清空当前文本、阅读进度和设置（无法撤销）。')) return;
+                if (!confirm('确定要清除当前记忆吗？\n这将清空当前文本、阅读进度和设置（历史文档不受影响，无法撤销）。')) return;
             }
             try { localStorage.removeItem(MEMORY_KEY); } catch (e) {}
             document.getElementById('textInput').value = '';
@@ -1759,10 +1969,11 @@
             setControlsVisible(true);
             currentIndex = 0;
             currentParagraph = 0;
+            currentDocId = null;
             splitText();
             updateStartButton();
             updateMemoryInfo();
-            showHint('记忆已清除');
+            showHint('当前记忆已清除（历史文档保留）');
         }
 
         // 页面加载时恢复记忆
@@ -1772,6 +1983,339 @@
         window.addEventListener('beforeunload', function() {
             saveMemory();
         });
+
+        // ============== 全屏功能 ==============
+        function toggleFullscreen() {
+            try {
+                if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                    const el = document.documentElement;
+                    if (el.requestFullscreen) el.requestFullscreen();
+                    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+                } else {
+                    if (document.exitFullscreen) document.exitFullscreen();
+                    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+                }
+            } catch (e) {
+                showHint('全屏切换失败：' + e.message);
+            }
+        }
+
+        // 监听全屏状态变化更新按钮文案
+        function updateFullscreenBtn() {
+            const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+            const btn = document.getElementById('fullscreenBtn');
+            btn.textContent = isFs ? '⤡' : '⛶';
+            btn.classList.toggle('active', isFs);
+            btn.title = isFs ? '退出全屏 (F11 / Esc)' : '切换全屏 (F11)';
+        }
+        document.addEventListener('fullscreenchange', updateFullscreenBtn);
+        document.addEventListener('webkitfullscreenchange', updateFullscreenBtn);
+
+        // ============== 导入/导出 .txt ==============
+        function exportTxt() {
+            const text = document.getElementById('textInput').value;
+            if (!text) {
+                showHint('没有文本可导出');
+                return;
+            }
+            // 文件名用第一行前 20 字（去掉换行和非法字符）
+            const firstLine = text.split(/\r?\n/)[0] || '文档';
+            const safeName = firstLine.slice(0, 20).replace(/[\\/:*?"<>|]/g, '_').trim() || '文档';
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = safeName + '.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            showHint(`已导出 ${safeName}.txt`);
+        }
+
+        function importTxt(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            // 限制文件大小（10MB）
+            if (file.size > 10 * 1024 * 1024) {
+                showHint('文件过大（超过 10MB），请选择更小的文件');
+                event.target.value = '';
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                document.getElementById('textInput').value = text;
+                document.getElementById('inputCount').textContent = text.length;
+                // 导入新文档时重置位置和 currentDocId（让自动保存创建新条目）
+                currentIndex = 0;
+                currentParagraph = 0;
+                currentDocId = null;
+                splitText();
+                scheduleSaveMemory();
+                updateMemoryInfo();
+                showHint(`已导入 ${file.name}（${text.length} 字）`);
+            };
+            reader.onerror = function() {
+                showHint('读取文件失败');
+            };
+            reader.readAsText(file, 'UTF-8');
+            // 重置 input 的 value 让相同文件可以再次触发 change
+            event.target.value = '';
+        }
+
+        // ============== 历史文档列表 ==============
+        const HISTORY_KEY = 'copyHelper:history:v1';
+        const HISTORY_MAX = 50;              // 最多保留 50 篇
+        const HISTORY_AUTOSAVE_THRESHOLD = 50; // 文本 >= 50 字才自动保存到历史
+
+        function loadHistory() {
+            try {
+                const raw = localStorage.getItem(HISTORY_KEY);
+                if (!raw) return [];
+                const arr = JSON.parse(raw);
+                return Array.isArray(arr) ? arr : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveHistory(history) {
+            try {
+                localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+            } catch (e) {
+                console.warn('保存历史失败:', e);
+            }
+        }
+
+        // 生成文档标题：第一行前 20 字
+        function makeDocTitle(text) {
+            if (!text) return '空文档';
+            const firstLine = text.split(/\r?\n/)[0] || '';
+            const title = firstLine.slice(0, 20).trim();
+            return title || '空文档';
+        }
+
+        // 生成唯一 ID
+        function genDocId() {
+            return 'doc_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+        }
+
+        // 自动保存到历史（在 saveMemory 时调用）
+        function autoSaveToHistory() {
+            const text = document.getElementById('textInput').value;
+            if (!text || text.length < HISTORY_AUTOSAVE_THRESHOLD) return;
+
+            const history = loadHistory();
+            const now = Date.now();
+            const lineHeightVal = document.getElementById('lineHeight').value;
+
+            // 如果有 currentDocId，更新对应文档
+            if (currentDocId) {
+                const idx = history.findIndex(d => d.id === currentDocId);
+                if (idx >= 0) {
+                    history[idx] = {
+                        ...history[idx],
+                        text: text,
+                        title: makeDocTitle(text),
+                        charPerLine: charPerLine,
+                        lineHeight: lineHeightVal,
+                        currentIndex: currentIndex,
+                        currentParagraph: currentParagraph,
+                        savedAt: now,
+                        lastReadAt: now
+                    };
+                    saveHistory(history);
+                    return;
+                }
+            }
+
+            // 没有 currentDocId 或找不到对应文档：检查是否有相同文本的文档
+            const existing = history.find(d => d.text === text);
+            if (existing) {
+                currentDocId = existing.id;
+                existing.charPerLine = charPerLine;
+                existing.lineHeight = lineHeightVal;
+                existing.currentIndex = currentIndex;
+                existing.currentParagraph = currentParagraph;
+                existing.savedAt = now;
+                existing.lastReadAt = now;
+                saveHistory(history);
+                return;
+            }
+
+            // 创建新文档
+            const doc = {
+                id: genDocId(),
+                title: makeDocTitle(text),
+                text: text,
+                charPerLine: charPerLine,
+                lineHeight: lineHeightVal,
+                currentIndex: currentIndex,
+                currentParagraph: currentParagraph,
+                savedAt: now,
+                lastReadAt: now
+            };
+            currentDocId = doc.id;
+            history.unshift(doc);
+
+            // 按 lastReadAt 降序排序
+            history.sort((a, b) => (b.lastReadAt || 0) - (a.lastReadAt || 0));
+
+            // 保留最新的 HISTORY_MAX 篇
+            if (history.length > HISTORY_MAX) {
+                history.length = HISTORY_MAX;
+            }
+            saveHistory(history);
+        }
+
+        // 加载历史文档到当前编辑区
+        function loadHistoryDoc(docId) {
+            const history = loadHistory();
+            const doc = history.find(d => d.id === docId);
+            if (!doc) {
+                showHint('文档不存在');
+                return;
+            }
+
+            // 先退出阅读模式
+            if (isReading) backToEdit();
+
+            currentDocId = doc.id;
+            document.getElementById('textInput').value = doc.text;
+            document.getElementById('inputCount').textContent = doc.text.length;
+            charPerLine = doc.charPerLine || 40;
+            document.getElementById('charPerLineDisplay').textContent = charPerLine;
+            if (doc.lineHeight) document.getElementById('lineHeight').value = doc.lineHeight;
+            currentIndex = doc.currentIndex || 0;
+            currentParagraph = doc.currentParagraph || 0;
+            splitText();
+            if (currentIndex >= lines.length) currentIndex = 0;
+
+            // 更新 lastReadAt
+            doc.lastReadAt = Date.now();
+            saveHistory(history);
+
+            updateStartButton();
+            updateMemoryInfo();
+            renderHistoryList();
+            scheduleSaveMemory();
+            toggleHistoryDrawer(false);
+            showHint(`已加载：${doc.title}`);
+        }
+
+        // 删除单个历史文档
+        function deleteHistoryDoc(docId) {
+            const history = loadHistory();
+            const idx = history.findIndex(d => d.id === docId);
+            if (idx < 0) return;
+            const doc = history[idx];
+            if (!confirm(`确定删除「${doc.title}」吗？`)) return;
+            history.splice(idx, 1);
+            saveHistory(history);
+            // 如果删除的是当前文档，清空 currentDocId
+            if (currentDocId === docId) {
+                currentDocId = null;
+            }
+            renderHistoryList();
+            showHint('已删除');
+        }
+
+        // 清空所有历史
+        function clearAllHistory() {
+            const history = loadHistory();
+            if (history.length === 0) {
+                showHint('历史已为空');
+                return;
+            }
+            if (!confirm(`确定清空全部 ${history.length} 篇历史文档吗？此操作无法撤销。`)) return;
+            try { localStorage.removeItem(HISTORY_KEY); } catch (e) {}
+            currentDocId = null;
+            renderHistoryList();
+            showHint('历史已清空');
+        }
+
+        // 格式化时间
+        function formatHistoryTime(timestamp) {
+            if (!timestamp) return '';
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = now.getTime() - timestamp;
+            // 1 小时内显示"X 分钟前"
+            if (diff < 60 * 1000) return '刚刚';
+            if (diff < 60 * 60 * 1000) return Math.floor(diff / 60000) + ' 分钟前';
+            // 24 小时内显示"X 小时前"
+            if (diff < 24 * 60 * 60 * 1000) return Math.floor(diff / 3600000) + ' 小时前';
+            // 7 天内显示"X 天前"
+            if (diff < 7 * 24 * 60 * 60 * 1000) return Math.floor(diff / 86400000) + ' 天前';
+            // 超过 7 天显示日期
+            return `${date.getMonth() + 1}/${date.getDate()}`;
+        }
+
+        // 渲染历史列表
+        function renderHistoryList() {
+            const container = document.getElementById('historyList');
+            const history = loadHistory();
+            if (history.length === 0) {
+                container.innerHTML = '<div class="drawer-empty">暂无历史文档<br><br>输入超过 50 字的文本会自动保存到这里</div>';
+                return;
+            }
+            const html = history.map(doc => {
+                const isActive = doc.id === currentDocId;
+                const wordCount = doc.text ? doc.text.length : 0;
+                const timeStr = formatHistoryTime(doc.lastReadAt || doc.savedAt);
+                const progress = doc.currentIndex > 0 ? ` · 第 ${doc.currentIndex + 1} 行` : '';
+                return `
+                    <div class="history-item ${isActive ? 'active' : ''}" data-id="${doc.id}">
+                        <div class="history-item-title">${escapeHtml(doc.title)}</div>
+                        <div class="history-item-meta">
+                            <span>${wordCount} 字${progress}</span>
+                            <span>${timeStr}</span>
+                        </div>
+                        <div class="history-item-actions">
+                            <button onclick="event.stopPropagation(); loadHistoryDoc('${doc.id}')">加载</button>
+                            <button class="secondary" onclick="event.stopPropagation(); deleteHistoryDoc('${doc.id}')">删除</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            container.innerHTML = html;
+
+            // 整个 item 点击也触发加载
+            container.querySelectorAll('.history-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    loadHistoryDoc(item.dataset.id);
+                });
+            });
+        }
+
+        // HTML 转义（防止标题里的 < > & 破坏 DOM）
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // 切换历史抽屉
+        function toggleHistoryDrawer(forceState) {
+            const drawer = document.getElementById('historyDrawer');
+            const overlay = document.getElementById('drawerOverlay');
+            const wantOpen = forceState === undefined ? !drawer.classList.contains('open') : forceState;
+            if (wantOpen) {
+                renderHistoryList();
+                drawer.classList.add('open');
+                overlay.classList.add('show');
+                drawer.setAttribute('aria-hidden', 'false');
+            } else {
+                drawer.classList.remove('open');
+                overlay.classList.remove('show');
+                drawer.setAttribute('aria-hidden', 'true');
+            }
+        }
     </script>
 </body>
 </html>
