@@ -614,6 +614,26 @@
             min-width: 60px;
         }
 
+        .input-info-bar {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            text-align: center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem 1rem;
+        }
+
+        #memoryInfo {
+            color: var(--success);
+            font-size: 0.8rem;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 0.2rem 0.6rem;
+            border-radius: 10px;
+        }
+
         @media (orientation: landscape) and (max-height: 500px) {
             .settings-panel {
                 padding: 0.5rem 1rem;
@@ -809,14 +829,17 @@
                 <button class="toggle-btn secondary" id="toggleControlsBtn" onclick="toggleControls()">隐藏</button>
             </div>
             <button onclick="startReading()" id="startBtn">开始</button>
+            <button onclick="restartReading()" class="secondary" id="restartBtn" style="display:none;" title="从第一行重新开始">从头开始</button>
             <button onclick="backToEdit()" class="secondary" id="backBtn" style="display:none;">返回</button>
+            <button onclick="clearMemory()" class="secondary" id="clearMemoryBtn" title="清除保存的文本、进度和设置">🗑️ 清除记忆</button>
         </div>
     </div>
 
     <div class="input-section" id="inputSection">
         <textarea id="textInput" placeholder="在这里粘贴你要抄写的文本...&#10;&#10;使用说明：&#10;• 使用 +/- 调整每行字数，字体大小会自动适应屏幕&#10;• 点击开始后，屏幕左半边点击=上一句，右半边点击=下一句&#10;• 电脑可用 ← → 方向键或空格切换&#10;• 进入新段落时会有绿色提示&#10;• 底部进度条可拖动，绿色标记始终显示段落位置&#10;• 横屏时建议隐藏底部按钮，使用点击区域操作"></textarea>
-        <div style="color: var(--text-secondary); font-size: 0.9rem; text-align: center;">
-            已输入 <span id="inputCount">0</span> 字 · 预计 <span id="lineCount">0</span> 行 · <span id="paraCount">0</span> 段
+        <div class="input-info-bar">
+            <span>已输入 <span id="inputCount">0</span> 字 · 预计 <span id="lineCount">0</span> 行 · <span id="paraCount">0</span> 段</span>
+            <span id="memoryInfo" style="display:none;"></span>
         </div>
     </div>
 
@@ -894,6 +917,8 @@
         document.getElementById('textInput').addEventListener('input', function() {
             document.getElementById('inputCount').textContent = this.value.length;
             splitText();
+            scheduleSaveMemory();
+            updateMemoryInfo();
         });
 
         // 行距改变时更新
@@ -901,6 +926,7 @@
             if (isReading) {
                 updateDisplay();
             }
+            scheduleSaveMemory();
         });
 
         // 调整字数
@@ -921,12 +947,15 @@
                 updateParaMarks();
                 showHint(`每行字数: ${charPerLine}，字号: ${currentFontSize}px`);
             }
+            scheduleSaveMemory();
         }
 
         // 严格按字数分段，不处理标点
         function splitText() {
-            const text = document.getElementById('textInput').value;
-            
+            const raw = document.getElementById('textInput').value;
+            // 规范化换行符：处理 Windows (\r\n) 和旧 Mac (\r) 换行
+            const text = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
             if (!text) {
                 document.getElementById('lineCount').textContent = '0';
                 document.getElementById('paraCount').textContent = '0';
@@ -935,30 +964,45 @@
 
             lines = [];
             paragraphMap = [];
-            
+
             // 按段落分割（保留空段落信息）
             const paragraphs = text.split('\n');
             let paraIndex = 0;
-            
+
             paragraphs.forEach((para, idx) => {
                 // 空段落也计数，但不生成行
                 if (!para.trim()) {
                     paraIndex++;
                     return;
                 }
-                
+
                 // 严格按字数切割，不处理标点
                 for (let i = 0; i < para.length; i += charPerLine) {
                     const chunk = para.slice(i, i + charPerLine);
                     lines.push(chunk);
                     paragraphMap.push(paraIndex);
                 }
-                
+
                 paraIndex++;
             });
 
+            // 修正 currentIndex 越界（adjustCharCount 等场景下 lines 数量可能减少）
+            if (lines.length > 0 && currentIndex >= lines.length) {
+                currentIndex = Math.max(0, lines.length - 1);
+            }
+
             document.getElementById('lineCount').textContent = lines.length;
             document.getElementById('paraCount').textContent = paraIndex;
+        }
+
+        // 安全地获取总段落数（避免 Math.max(...[]) 返回 -Infinity）
+        function getTotalParas() {
+            if (!paragraphMap || paragraphMap.length === 0) return 0;
+            let max = 0;
+            for (let i = 0; i < paragraphMap.length; i++) {
+                if (paragraphMap[i] > max) max = paragraphMap[i];
+            }
+            return max + 1;
         }
 
         // 计算最优字体大小 - 确保所有文本可见
@@ -1005,6 +1049,8 @@
             
             return optimalSize;
         }
+
+        let interactionsInitialized = false;
 
         function initClickAreas() {
             const leftArea = document.getElementById('leftArea');
@@ -1180,14 +1226,16 @@
             const progressFill = document.getElementById('progressFill');
             const progressThumb = document.getElementById('progressThumb');
             const progressTooltip = document.getElementById('progressTooltip');
-            
+
             const percentStr = (percentage * 100) + '%';
             progressFill.style.width = percentStr;
             progressThumb.style.left = percentStr;
             progressTooltip.style.left = percentStr;
-            
-            const newIndex = Math.floor(percentage * lines.length);
-            if (newIndex >= 0 && newIndex < lines.length) {
+
+            if (lines.length === 0) return;
+            // 钳制索引范围，避免 percentage=1.0 时 Math.floor 得到 lines.length 越界
+            const newIndex = Math.min(lines.length - 1, Math.floor(percentage * lines.length));
+            if (newIndex >= 0) {
                 const paraNum = paragraphMap[newIndex] + 1;
                 progressTooltip.textContent = `第 ${newIndex + 1} 行 · 第 ${paraNum} 段`;
             }
@@ -1267,11 +1315,13 @@
         }
 
         function updateProgressFromPercentage(percentage) {
-            const newIndex = Math.floor(percentage * lines.length);
-            if (newIndex >= 0 && newIndex < lines.length && newIndex !== currentIndex) {
+            if (lines.length === 0) return;
+            const newIndex = Math.min(lines.length - 1, Math.floor(percentage * lines.length));
+            if (newIndex >= 0 && newIndex !== currentIndex) {
                 checkParagraphChange(newIndex);
                 currentIndex = newIndex;
                 updateDisplay();
+                scheduleSaveMemory();
             }
         }
 
@@ -1308,11 +1358,10 @@
             });
         }
 
-        function toggleControls() {
-            showControls = !showControls;
+        function setControlsVisible(visible) {
+            showControls = visible;
             const btn = document.getElementById('toggleControlsBtn');
             const container = document.getElementById('controlsContainer');
-            
             if (showControls) {
                 btn.textContent = '隐藏';
                 btn.classList.remove('active');
@@ -1324,10 +1373,15 @@
             }
         }
 
+        function toggleControls() {
+            setControlsVisible(!showControls);
+            scheduleSaveMemory();
+        }
+
         function showParagraphIndicator(paraIndex) {
             const indicator = document.getElementById('paraIndicator');
-            const totalParas = Math.max(...paragraphMap) + 1;
-            
+            const totalParas = getTotalParas();
+
             indicator.textContent = `第 ${paraIndex + 1} / ${totalParas} 段`;
             indicator.classList.add('show');
             
@@ -1361,45 +1415,71 @@
             document.getElementById('clockTime').textContent = `${hours}:${minutes}`;
         }
 
-        function startReading() {
+        function startReading(fromRestart = false) {
             if (lines.length === 0) {
                 showHint('请先输入文本！');
                 return;
             }
 
-            currentIndex = 0;
-            currentParagraph = paragraphMap[0] || 0;
+            // fromRestart=true 强制从头；否则使用已恢复的 currentIndex（记忆功能）
+            if (fromRestart || currentIndex < 0 || currentIndex >= lines.length) {
+                currentIndex = 0;
+            }
+            currentParagraph = paragraphMap[currentIndex] || 0;
             isReading = true;
-            
+
             document.getElementById('inputSection').style.display = 'none';
             document.getElementById('readerView').classList.add('active');
             document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('restartBtn').style.display = 'none';
             document.getElementById('backBtn').style.display = 'inline-block';
-            
+
             calculateOptimalFontSize();
             updateParaMarks();
-            initClickAreas();
-            initProgressBar();
-            
+            // 只在首次初始化监听器，避免重复绑定
+            if (!interactionsInitialized) {
+                initClickAreas();
+                initProgressBar();
+                interactionsInitialized = true;
+            }
+
             if (window.innerWidth > window.innerHeight && window.innerHeight < 500) {
                 if (showControls) {
                     showHint('横屏模式：建议隐藏底部按钮');
                 }
             }
-            
+
             updateDisplay();
-            showHint(`每行${charPerLine}字，字号${currentFontSize}px · 点击左右区域翻页`);
+            const posHint = currentIndex > 0
+                ? `已从第 ${currentIndex + 1} 行继续 · 点击左右区域翻页`
+                : `每行${charPerLine}字，字号${currentFontSize}px · 点击左右区域翻页`;
+            showHint(posHint);
+        }
+
+        // 从头开始阅读（忽略记忆的位置）
+        function restartReading() {
+            currentIndex = 0;
+            currentParagraph = 0;
+            scheduleSaveMemory();
+            startReading(true);
         }
 
         function backToEdit() {
             isReading = false;
             document.getElementById('inputSection').style.display = 'flex';
             document.getElementById('readerView').classList.remove('active');
+            // 根据是否有进度决定是否显示"从头开始"
             document.getElementById('startBtn').style.display = 'inline-block';
+            document.getElementById('startBtn').textContent = currentIndex > 0
+                ? `继续 (第 ${currentIndex + 1} 行)`
+                : '开始';
+            document.getElementById('restartBtn').style.display = currentIndex > 0 ? 'inline-block' : 'none';
             document.getElementById('backBtn').style.display = 'none';
-            
+
             // 强制隐藏键盘
             document.getElementById('textInput').blur();
+            scheduleSaveMemory();
+            updateMemoryInfo();
         }
 
         function updateDisplay() {
@@ -1426,7 +1506,12 @@
                 prevLine.style.opacity = '0.2';
             }
 
-            currentLine.innerHTML = `<span class="fade-in">${lines[currentIndex]}</span>`;
+            currentLine.textContent = '';
+            const fadeSpan = document.createElement('span');
+            fadeSpan.className = 'fade-in';
+            // 使用 textContent 避免 < > & 等字符被当作 HTML 解析
+            fadeSpan.textContent = lines[currentIndex];
+            currentLine.appendChild(fadeSpan);
             
             if (currentIndex < lines.length - 1) {
                 nextLine.textContent = lines[currentIndex + 1];
@@ -1446,7 +1531,7 @@
             document.getElementById('progressTooltip').textContent = `第 ${currentIndex + 1} 行 · 第 ${paraNum} 段`;
             document.getElementById('progressTooltip').style.left = progress + '%';
 
-            const totalParas = Math.max(...paragraphMap) + 1;
+            const totalParas = getTotalParas();
             const tag = document.getElementById('paraTag');
             tag.textContent = `第 ${currentParagraph + 1} / ${totalParas} 段`;
         }
@@ -1456,6 +1541,7 @@
                 checkParagraphChange(currentIndex - 1);
                 currentIndex--;
                 updateDisplay();
+                scheduleSaveMemory();
             } else {
                 showHint('已经是第一句了');
             }
@@ -1466,6 +1552,7 @@
                 checkParagraphChange(currentIndex + 1);
                 currentIndex++;
                 updateDisplay();
+                scheduleSaveMemory();
             } else {
                 showHint('已经抄完了！');
             }
@@ -1552,6 +1639,139 @@
 
         updateClock();
         setInterval(updateClock, 1000);
+
+        // ============== 记忆功能 ==============
+        const MEMORY_KEY = 'copyHelper:memory:v1';
+        let saveTimer = null;
+
+        // 防抖保存（500ms 内的连续修改只保存一次）
+        function scheduleSaveMemory() {
+            if (saveTimer) clearTimeout(saveTimer);
+            saveTimer = setTimeout(saveMemory, 500);
+        }
+
+        function saveMemory() {
+            try {
+                const memory = {
+                    text: document.getElementById('textInput').value,
+                    charPerLine: charPerLine,
+                    lineHeight: document.getElementById('lineHeight').value,
+                    showControls: showControls,
+                    currentIndex: currentIndex,
+                    currentParagraph: currentParagraph,
+                    isReading: isReading,
+                    savedAt: Date.now()
+                };
+                localStorage.setItem(MEMORY_KEY, JSON.stringify(memory));
+                updateMemoryInfo();
+            } catch (e) {
+                // localStorage 不可用或超出配额时静默失败
+                console.warn('保存记忆失败:', e);
+            }
+        }
+
+        function loadMemory() {
+            try {
+                const raw = localStorage.getItem(MEMORY_KEY);
+                if (!raw) return null;
+                return JSON.parse(raw);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function applyMemory(memory) {
+            if (!memory) return;
+            if (typeof memory.charPerLine === 'number' && memory.charPerLine >= 5 && memory.charPerLine <= 100) {
+                charPerLine = memory.charPerLine;
+                document.getElementById('charPerLineDisplay').textContent = charPerLine;
+            }
+            if (typeof memory.lineHeight === 'string') {
+                document.getElementById('lineHeight').value = memory.lineHeight;
+            }
+            if (typeof memory.showControls === 'boolean') {
+                setControlsVisible(memory.showControls);
+            }
+            if (typeof memory.text === 'string' && memory.text.length > 0) {
+                document.getElementById('textInput').value = memory.text;
+                document.getElementById('inputCount').textContent = memory.text.length;
+                splitText();
+            }
+            if (typeof memory.currentIndex === 'number' && memory.currentIndex >= 0 && memory.currentIndex < lines.length) {
+                currentIndex = memory.currentIndex;
+            } else {
+                currentIndex = 0;
+            }
+            if (typeof memory.currentParagraph === 'number') {
+                currentParagraph = memory.currentParagraph;
+            }
+            // 不自动进入阅读模式，让用户主动点击
+            updateStartButton();
+            updateMemoryInfo();
+        }
+
+        // 根据 currentIndex 更新开始按钮文案
+        function updateStartButton() {
+            const btn = document.getElementById('startBtn');
+            const restartBtn = document.getElementById('restartBtn');
+            if (currentIndex > 0 && lines.length > 0) {
+                btn.textContent = `继续 (第 ${currentIndex + 1} 行)`;
+                restartBtn.style.display = 'inline-block';
+            } else {
+                btn.textContent = '开始';
+                restartBtn.style.display = 'none';
+            }
+        }
+
+        // 更新记忆信息提示
+        function updateMemoryInfo() {
+            const info = document.getElementById('memoryInfo');
+            const memory = loadMemory();
+            if (!memory || !memory.savedAt) {
+                info.style.display = 'none';
+                return;
+            }
+            const hasText = lines.length > 0;
+            if (!hasText) {
+                info.style.display = 'none';
+                return;
+            }
+            const date = new Date(memory.savedAt);
+            const timeStr = `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+            const lineInfo = (typeof memory.currentIndex === 'number' && memory.currentIndex > 0)
+                ? ` · 第 ${memory.currentIndex + 1} 行`
+                : '';
+            info.textContent = `↻ 已记忆 ${timeStr}${lineInfo}`;
+            info.style.display = 'inline-block';
+        }
+
+        function clearMemory() {
+            const hasContent = lines.length > 0 || document.getElementById('textInput').value.length > 0;
+            if (hasContent) {
+                if (!confirm('确定要清除记忆吗？这将清空当前文本、阅读进度和设置（无法撤销）。')) return;
+            }
+            try { localStorage.removeItem(MEMORY_KEY); } catch (e) {}
+            document.getElementById('textInput').value = '';
+            document.getElementById('inputCount').textContent = '0';
+            charPerLine = 40;
+            document.getElementById('charPerLineDisplay').textContent = '40';
+            document.getElementById('lineHeight').value = '1.6';
+            setControlsVisible(true);
+            currentIndex = 0;
+            currentParagraph = 0;
+            splitText();
+            updateStartButton();
+            updateMemoryInfo();
+            showHint('记忆已清除');
+        }
+
+        // 页面加载时恢复记忆
+        applyMemory(loadMemory());
+
+        // 页面卸载前强制保存一次
+        window.addEventListener('beforeunload', function() {
+            saveMemory();
+        });
     </script>
 </body>
 </html>
