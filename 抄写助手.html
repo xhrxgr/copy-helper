@@ -404,17 +404,18 @@
 
         .click-area {
             position: absolute;
-            top: 0;
-            height: 100%;
+            top: 36px;                          /* 顶部死区：留给下拉状态栏等系统手势 */
+            height: calc(100% - 72px);          /* 底部也留 36px：留给小白条/上滑手势 */
             width: 50%;
             z-index: 10;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            user-select: none;
+            touch-action: none;                 /* 阻止浏览器默认触摸行为（滚动/缩放），不阻塞系统手势 */
+            -webkit-touch-callout: none;        /* 禁止长按菜单 */
             -webkit-user-select: none;
-            touch-action: none;
+            user-select: none;
         }
 
         .click-area-left {
@@ -1343,35 +1344,36 @@
         function initClickAreas() {
             const leftArea = document.getElementById('leftArea');
             const rightArea = document.getElementById('rightArea');
-            
-            leftArea.addEventListener('touchstart', handleTouchStart, { passive: false });
-            leftArea.addEventListener('touchend', handleTouchEnd, { passive: false });
-            leftArea.addEventListener('touchmove', handleTouchMove, { passive: false });
-            leftArea.addEventListener('touchcancel', handleTouchCancel, { passive: false });
-            
-            rightArea.addEventListener('touchstart', handleTouchStart, { passive: false });
-            rightArea.addEventListener('touchend', handleTouchEnd, { passive: false });
-            rightArea.addEventListener('touchmove', handleTouchMove, { passive: false });
-            rightArea.addEventListener('touchcancel', handleTouchCancel, { passive: false });
-            
+
+            // passive: true —— 不再 preventDefault，靠 CSS touch-action: none 阻止默认行为，
+            // 这样系统手势（下拉状态栏、上滑小白条）不会被吞，从边缘开始的手势能正常唤出
+            leftArea.addEventListener('touchstart', handleTouchStart, { passive: true });
+            leftArea.addEventListener('touchend', handleTouchEnd, { passive: true });
+            leftArea.addEventListener('touchmove', handleTouchMove, { passive: true });
+            leftArea.addEventListener('touchcancel', handleTouchCancel, { passive: true });
+
+            rightArea.addEventListener('touchstart', handleTouchStart, { passive: true });
+            rightArea.addEventListener('touchend', handleTouchEnd, { passive: true });
+            rightArea.addEventListener('touchmove', handleTouchMove, { passive: true });
+            rightArea.addEventListener('touchcancel', handleTouchCancel, { passive: true });
+
             leftArea.addEventListener('mousedown', handleMouseDown);
             leftArea.addEventListener('mouseup', handleMouseUp);
             leftArea.addEventListener('mouseleave', handleMouseLeave);
-            
+
             rightArea.addEventListener('mousedown', handleMouseDown);
             rightArea.addEventListener('mouseup', handleMouseUp);
             rightArea.addEventListener('mouseleave', handleMouseLeave);
         }
 
         function handleTouchStart(e) {
-            e.preventDefault();
-            
+            // 不再 preventDefault：让系统手势（下拉状态栏/小白条）能从死区正常触发
             const side = this.dataset.side;
-            
+
             if (touchState.isActive && touchState.activeSide !== side) {
                 return;
             }
-            
+
             const touch = e.touches[0];
             touchState = {
                 isActive: true,
@@ -1381,17 +1383,17 @@
                 startTime: Date.now(),
                 isScrolling: false
             };
-            
+
             this.classList.add('tapped');
         }
 
         function handleTouchMove(e) {
             if (!touchState.isActive) return;
-            
+
             const touch = e.touches[0];
             const deltaX = Math.abs(touch.clientX - touchState.startX);
             const deltaY = Math.abs(touch.clientY - touchState.startY);
-            
+
             if (deltaX > 10 || deltaY > 10) {
                 touchState.isScrolling = true;
                 document.querySelectorAll('.click-area').forEach(area => {
@@ -1401,21 +1403,20 @@
         }
 
         function handleTouchEnd(e) {
-            e.preventDefault();
-            
+            // 不再 preventDefault：避免吞掉系统手势的收尾
             const side = this.dataset.side;
-            
+
             if (!touchState.isActive || touchState.activeSide !== side) {
                 return;
             }
-            
+
             const duration = Date.now() - touchState.startTime;
-            
+
             this.classList.add('tapped');
             setTimeout(() => {
                 this.classList.remove('tapped');
             }, 150);
-            
+
             if (!touchState.isScrolling && duration < 500) {
                 if (side === 'left') {
                     prevLine();
@@ -1423,7 +1424,7 @@
                     nextLine();
                 }
             }
-            
+
             touchState = {
                 isActive: false,
                 activeSide: null,
