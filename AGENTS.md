@@ -184,3 +184,4 @@
 - `15ba288` 2026-07-25 — feat: history drawer, import/export txt, fullscreen, UI fixes（已推送 origin/main）
 - `9fa0417` 2026-07-25 — fix: landscape button overlap, move import/export into More menu（已推送 origin/main）
 - `759b6c9` 2026-07-25 — fix: paragraph split - handle Unicode separators and skip empty lines（已推送 origin/main）
+- `27907b6` 2026-07-25 — fix: prevent fullscreen gesture mistouch - edge deadzone + touch-action（已推送 origin/main）
