@@ -85,6 +85,8 @@
 4. **进度条越界** — `Math.floor(percentage * lines.length)` 在 p=1.0 时得 lines.length；改为 `Math.min(lines.length-1, ...)`
 5. **重复监听器** — `initClickAreas`/`initProgressBar` 每次进阅读模式都绑定；新增 `interactionsInitialized` 守卫
 6. **adjustCharCount 越界** — 增大字数后 lines 减少但 currentIndex 未变；`splitText` 末尾加 `if (currentIndex >= lines.length) currentIndex = lines.length-1`
+7. **空行被计为段落（2026-07-25 二次修复）** — `splitText` 中空行也 `paraIndex++`，导致段落数虚高、编号不连续（开头空行会让第一段编号从 2 开始）；改为空行直接 `return` 跳过
+8. **Unicode 段落分隔符未识别（2026-07-25 二次修复）** — 从 Word/网页复制的文本可能含 `\u2028`（行分隔符）、`\u2029`（段分隔符），`split('\n')` 无法识别导致整段文本被当成 1 段；在规范化换行符时增加 `.replace(/\u2028/g,'\n').replace(/\u2029/g,'\n')`
 
 ## 测试方法
 

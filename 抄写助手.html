@@ -1242,8 +1242,8 @@
         // 严格按字数分段，不处理标点
         function splitText() {
             const raw = document.getElementById('textInput').value;
-            // 规范化换行符：处理 Windows (\r\n) 和旧 Mac (\r) 换行
-            const text = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            // 规范化换行符：处理 Windows (\r\n)、旧 Mac (\r)、Unicode 行/段分隔符 (\u2028 \u2029)
+            const text = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\u2028/g, '\n').replace(/\u2029/g, '\n');
 
             if (!text) {
                 document.getElementById('lineCount').textContent = '0';
@@ -1254,14 +1254,13 @@
             lines = [];
             paragraphMap = [];
 
-            // 按段落分割（保留空段落信息）
+            // 按换行分割，连续空行视为同一段落分隔（不单独计数）
             const paragraphs = text.split('\n');
             let paraIndex = 0;
 
             paragraphs.forEach((para, idx) => {
-                // 空段落也计数，但不生成行
+                // 空行跳过，不计数为独立段落（避免段落数虚高、编号不连续）
                 if (!para.trim()) {
-                    paraIndex++;
                     return;
                 }
 
