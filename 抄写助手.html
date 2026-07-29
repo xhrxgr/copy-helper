@@ -1433,6 +1433,9 @@
                 startTime: 0,
                 isScrolling: false
             };
+
+            // 记录 touch 结束时间，用于过滤浏览器随后合成的 mouse 事件（手机端防翻两页）
+            lastTouchTime = Date.now();
         }
 
         function handleTouchCancel(e) {
@@ -1449,6 +1452,8 @@
             };
         }
 
+        let lastTouchTime = 0; // 记录最后一次 touchend 的时间，用于过滤 touch 后浏览器合成的 mouse 事件（避免手机翻两页）
+
         let mouseState = {
             isDown: false,
             startX: 0,
@@ -1456,6 +1461,9 @@
         };
 
         function handleMouseDown(e) {
+            // 过滤 touchend 之后浏览器合成的 mouse 事件（手机端 touchend 已翻过页，这里不再翻）
+            if (Date.now() - lastTouchTime < 500) return;
+
             mouseState = {
                 isDown: true,
                 startX: e.clientX,

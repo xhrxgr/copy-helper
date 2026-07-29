@@ -88,6 +88,7 @@
 7. **空行被计为段落（2026-07-25 二次修复）** — `splitText` 中空行也 `paraIndex++`，导致段落数虚高、编号不连续（开头空行会让第一段编号从 2 开始）；改为空行直接 `return` 跳过
 8. **Unicode 段落分隔符未识别（2026-07-25 二次修复）** — 从 Word/网页复制的文本可能含 `\u2028`（行分隔符）、`\u2029`（段分隔符），`split('\n')` 无法识别导致整段文本被当成 1 段；在规范化换行符时增加 `.replace(/\u2028/g,'\n').replace(/\u2029/g,'\n')`
 9. **全屏后系统手势误触翻页（2026-07-25 修复）** — `handleTouchStart`/`handleTouchEnd` 里 `e.preventDefault()` 会吞掉系统手势（下拉状态栏、上滑小白条），且 `.click-area` 覆盖整个屏幕高度（`top:0;height:100%`）导致边缘手势被劫持；修复：(a) `.click-area` 改为 `top:36px;height:calc(100%-72px)` 顶部底部各留 36px 死区；(b) 加 `touch-action:none` 用 CSS 替代 `preventDefault` 阻止默认行为；(c) 去掉 touchstart/touchend 的 `preventDefault`，监听器改 `passive:true`
+10. **翻页多翻一页（2026-07-25 修复）** — 去掉 touchend 的 `preventDefault`（bug 9 修复）后，浏览器在 touchend 后会合成 mousedown/mouseup 事件，导致手机上 touchend 翻 1 页 + 合成的 mouse 事件再翻 1 页 = 多翻一页；修复：新增 `lastTouchTime` 全局变量，`handleTouchEnd` 末尾记录 `Date.now()`，`handleMouseDown` 开头检查 `Date.now() - lastTouchTime < 500` 则 return 忽略（因 `mouseState.isDown` 仍为 false，`handleMouseUp` 也会 return）
 
 ## 测试方法
 
