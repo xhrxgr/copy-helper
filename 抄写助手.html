@@ -136,6 +136,29 @@
             font-weight: 500;
         }
 
+        /* 让 input 显示效果和原 span 一致 */
+        .number-control input.value {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 2px 4px;
+            width: 52px;
+            min-width: 52px;
+            -moz-appearance: textfield;
+        }
+
+        .number-control input.value::-webkit-outer-spin-button,
+        .number-control input.value::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .number-control input.value:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: rgba(0, 0, 0, 0.3);
+        }
+
         input[type="range"] {
             background: var(--bg-tertiary);
             border: 1px solid var(--border);
@@ -1077,7 +1100,7 @@
                 <label>每行字数:</label>
                 <div class="number-control">
                     <button onclick="adjustCharCount(-5)" title="减少5字">−</button>
-                    <span class="value" id="charPerLineDisplay">40</span>
+                    <input type="number" class="value" id="charPerLineDisplay" min="5" max="100" step="1" value="40" inputmode="numeric" onchange="setCharCount(this.value)" onkeydown="if(event.key==='Enter')this.blur()" title="每行字数 (5-100)">
                     <button onclick="adjustCharCount(5)" title="增加5字">+</button>
                 </div>
             </div>
@@ -1225,12 +1248,33 @@
             if (newValue < 5 || newValue > 100) return;
             
             charPerLine = newValue;
-            document.getElementById('charPerLineDisplay').textContent = charPerLine;
-            
+            document.getElementById('charPerLineDisplay').value = charPerLine;
+
             // 重新分段
             splitText();
             
             // 如果在阅读模式，重新计算字体大小并更新
+            if (isReading) {
+                calculateOptimalFontSize();
+                updateDisplay();
+                updateParaMarks();
+                showHint(`每行字数: ${charPerLine}，字号: ${currentFontSize}px`);
+            }
+            scheduleSaveMemory();
+        }
+
+        // 直接设置每行字数（供输入框 onchange 调用，支持键盘输入）
+        function setCharCount(value) {
+            // 解析为整数，处理空值/非法输入
+            let n = parseInt(value, 10);
+            if (isNaN(n)) n = charPerLine;          // 非法输入回退到当前值
+            n = Math.max(5, Math.min(100, n));       // 钳制到 5-100
+            charPerLine = n;
+            // 同步显示（避免输入了 123 被钳制成 100 后输入框还显示 123）
+            document.getElementById('charPerLineDisplay').value = n;
+
+            splitText();
+
             if (isReading) {
                 calculateOptimalFontSize();
                 updateDisplay();
@@ -1297,45 +1341,68 @@
         // 计算最优字体大小 - 确保所有文本可见
         function calculateOptimalFontSize() {
             const container = document.getElementById('linesContainer');
-            const availableWidth = container.clientWidth - 32; // 减去padding
-            
-            // 创建测试元素
+            if (!container || container.clientWidth === 0) {
+                // 容器尚未渲染（如刚进入阅读模式时），用回退值
+                currentFontSize = 32;
+                const fsEl = document.getElementById('currentFontSize');
+                if (fsEl) fsEl.textContent = currentFontSize + 'px';
+                return currentFontSize;
+            }
+            // 读取容器实际 padding，避免硬编码导致横屏/竖屏算错
+            const cs = getComputedStyle(container);
+            const padL = parseFloat(cs.paddingLeft) || 0;
+            const padR = parseFloat(cs.paddingRight) || 0;
+            // 可用宽度 = 容器宽度 - 左右 padding - 12px 安全余量（防 emoji/全角标点更宽）
+            const availableWidth = Math.max(50, container.clientWidth - padL - padR - 12);
+
+            // 可用高度：视口高度 - 上下死区(各 36px=72) - 进度条区(约 90px) - 段落提示预留(40px)
+            const availableHeight = Math.max(80, window.innerHeight - 72 - 90 - 40);
+
+            // 创建测试元素（用于测量 charPerLine 个宽字符的实际渲染宽度）
             const testElement = document.createElement('span');
             testElement.style.visibility = 'hidden';
             testElement.style.position = 'absolute';
             testElement.style.whiteSpace = 'nowrap';
             testElement.style.fontFamily = 'inherit';
-            // 使用一个"宽"字符作为参考（如"国"）
             testElement.textContent = '国'.repeat(charPerLine);
             document.body.appendChild(testElement);
-            
+
+            // 当前行允许换行成最多 3 行（charPerLine 较大时无法单行装下）
+            // 宽度条件按 3 行容量算：availableWidth * 3 * 0.92
+            const maxLineWidth = availableWidth * 3 * 0.92;
+            // 高度估算（保守）：prev(0.9缩放) + 当前行最多3行 + next(0.9缩放) = 等效约 4.8 行
+            // 每行高度 = 字号 * 行距(1.6)，外加 padding/margin 间距约 32px
+            const estLineH = (size) => size * 1.6 * 4.8 + 32;
+
             // 二分查找
             let minSize = 12;
             let maxSize = 100;
-            let optimalSize = 32;
-            
+            // 初始值用 minSize，确保即使所有字号都不满足条件也返回最小值（而非不满足条件的值）
+            let optimalSize = minSize;
+
             while (minSize <= maxSize) {
                 const mid = Math.floor((minSize + maxSize) / 2);
                 testElement.style.fontSize = mid + 'px';
                 const textWidth = testElement.getBoundingClientRect().width;
-                
-                // 留出15%边距
-                if (textWidth < availableWidth * 0.85) {
+
+                // 宽度：允许换行成最多 3 行；高度：不超过可用高度
+                if (textWidth < maxLineWidth && estLineH(mid) < availableHeight) {
                     optimalSize = mid;
                     minSize = mid + 1;
                 } else {
                     maxSize = mid - 1;
                 }
             }
-            
+
             document.body.removeChild(testElement);
-            
+
             // 限制范围
             optimalSize = Math.max(14, Math.min(60, optimalSize));
             currentFontSize = optimalSize;
-            
-            document.getElementById('currentFontSize').textContent = optimalSize + 'px';
-            
+
+            const fsEl = document.getElementById('currentFontSize');
+            if (fsEl) fsEl.textContent = optimalSize + 'px';
+
             return optimalSize;
         }
 
@@ -2011,7 +2078,7 @@
             if (!memory) return;
             if (typeof memory.charPerLine === 'number' && memory.charPerLine >= 5 && memory.charPerLine <= 100) {
                 charPerLine = memory.charPerLine;
-                document.getElementById('charPerLineDisplay').textContent = charPerLine;
+                document.getElementById('charPerLineDisplay').value = charPerLine;
             }
             if (typeof memory.lineHeight === 'string') {
                 document.getElementById('lineHeight').value = memory.lineHeight;
@@ -2086,7 +2153,7 @@
             document.getElementById('textInput').value = '';
             document.getElementById('inputCount').textContent = '0';
             charPerLine = 40;
-            document.getElementById('charPerLineDisplay').textContent = '40';
+            document.getElementById('charPerLineDisplay').value = '40';
             document.getElementById('lineHeight').value = '1.6';
             setControlsVisible(true);
             currentIndex = 0;
@@ -2307,7 +2374,7 @@
             document.getElementById('textInput').value = doc.text;
             document.getElementById('inputCount').textContent = doc.text.length;
             charPerLine = doc.charPerLine || 40;
-            document.getElementById('charPerLineDisplay').textContent = charPerLine;
+            document.getElementById('charPerLineDisplay').value = charPerLine;
             if (doc.lineHeight) document.getElementById('lineHeight').value = doc.lineHeight;
             currentIndex = doc.currentIndex || 0;
             currentParagraph = doc.currentParagraph || 0;

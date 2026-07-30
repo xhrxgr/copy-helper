@@ -48,7 +48,9 @@
 ## 关键函数
 
 - `splitText()` — 按字数切分文本，生成 lines/paragraphMap
-- `calculateOptimalFontSize()` — 二分查找最优字号
+- `calculateOptimalFontSize()` — 二分查找最优字号（宽度按 charPerLine 个"国"字测量，高度按 3.8 行估算防溢出）
+- `adjustCharCount(delta)` — 加减按钮调整字数（±5）
+- `setCharCount(value)` — 输入框直接设置字数（钳制 5-100，支持键盘输入）
 - `startReading(fromRestart=false)` — 进入阅读模式；fromRestart=true 强制从头
 - `restartReading()` — 重置到第 1 行并开始
 - `backToEdit()` — 返回编辑模式
@@ -89,6 +91,12 @@
 8. **Unicode 段落分隔符未识别（2026-07-25 二次修复）** — 从 Word/网页复制的文本可能含 `\u2028`（行分隔符）、`\u2029`（段分隔符），`split('\n')` 无法识别导致整段文本被当成 1 段；在规范化换行符时增加 `.replace(/\u2028/g,'\n').replace(/\u2029/g,'\n')`
 9. **全屏后系统手势误触翻页（2026-07-25 修复）** — `handleTouchStart`/`handleTouchEnd` 里 `e.preventDefault()` 会吞掉系统手势（下拉状态栏、上滑小白条），且 `.click-area` 覆盖整个屏幕高度（`top:0;height:100%`）导致边缘手势被劫持；修复：(a) `.click-area` 改为 `top:36px;height:calc(100%-72px)` 顶部底部各留 36px 死区；(b) 加 `touch-action:none` 用 CSS 替代 `preventDefault` 阻止默认行为；(c) 去掉 touchstart/touchend 的 `preventDefault`，监听器改 `passive:true`
 10. **翻页多翻一页（2026-07-25 修复）** — 去掉 touchend 的 `preventDefault`（bug 9 修复）后，浏览器在 touchend 后会合成 mousedown/mouseup 事件，导致手机上 touchend 翻 1 页 + 合成的 mouse 事件再翻 1 页 = 多翻一页；修复：新增 `lastTouchTime` 全局变量，`handleTouchEnd` 末尾记录 `Date.now()`，`handleMouseDown` 开头检查 `Date.now() - lastTouchTime < 500` 则 return 忽略（因 `mouseState.isDown` 仍为 false，`handleMouseUp` 也会 return）
+
+## 已修复的 Bug（2026-07-30）
+
+11. **每行字数输入框不刷新（input 误用 textContent）** — `#charPerLineDisplay` 已从 `<span>` 改为 `<input type="number">` 以支持键盘输入，但 `adjustCharCount` / `applyMemory` / `clearMemory` / `loadHistoryDoc` 4 处仍用 `.textContent` 赋值（对 input 无效，输入框数字不更新）；修复：4 处全部改为 `.value`
+12. **键盘输入字数未生效（缺 setCharCount 函数）** — HTML onchange 调用了 `setCharCount(this.value)` 但函数未定义；新增 `setCharCount(value)`：`parseInt` 解析 → 钳制 5-100 → 同步输入框显示 → `splitText` + `calculateOptimalFontSize` + `updateDisplay`
+13. **每行字数调整后元素超出屏幕（字号计算偏大 + 二分查找初始值 bug）** — 旧 `calculateOptimalFontSize` 有两个问题：(a) 宽度条件 `textWidth < availableWidth*0.95` 强制 charPerLine 个字符必须单行装下，当 charPerLine 较大（如 100）时字号被压到最小仍不满足，但二分查找初始值 18 被错误保留返回（18 实际也不满足条件）；(b) 高度估算只按 1 行算（`mid*1.6+16`），字号偏大导致当前行换行时总高度溢出。修复：(1) 宽度条件改为 `textWidth < availableWidth*3*0.92` 允许当前行换行成最多 3 行；(2) 高度估算改为 4.8 行（prev 0.9 + current 3 + next 0.9），`estTotalHeight = mid*1.6*4.8+32`；(3) 二分查找初始值改为 `minSize`（12）而非 18，确保无解时返回最小字号；(4) 容器未渲染时（clientWidth=0）回退到 32px；(5) 可用高度扣除项调整为 72(死区)+90(进度条)+40(段落提示)。实测：charPerLine=10→53px，40→53px，60→43px，80→32px，100→26px
 
 ## 测试方法
 
